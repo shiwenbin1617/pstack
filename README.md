@@ -57,7 +57,13 @@ AI 写代码的默认失败模式是：看上去合理、跑不起来、或者�
 npx @shiwenbin1617/pstack add
 ```
 
-交互式勾选要装哪些技能：`↑↓` 移动，`空格` 勾选，`a` 全选，`回车` 确认。默认预选 10 个核心入口，安装时自动补齐它们引用的运行依赖。
+先单选装给哪个 agent：Claude Code、Codex，或者两个都装。本机探测到哪个，光标就落在哪个上。
+
+然后勾选要装哪些技能：`↑↓` 移动，`空格` 勾选，`a` 全选，`回车` 确认。默认预选 10 个核心入口。
+
+**这套东西是耦合的，装全了才有效果。** `poteto-mode` 会去读全部 33 个 principle 技能，所以不管你勾几个，安装时都会按引用关系补齐，勾满核心入口最后落在 44 个里的 39 个。省事就直接 `pstack add --all`。
+
+最后问一次要不要把 pstack 那段写进 CLAUDE.md / AGENTS.md，见下面的「写进 CLAUDE.md / AGENTS.md」。
 
 嫌包名长就装成全局，之后命令就是 `pstack`：
 
@@ -70,9 +76,10 @@ npm i -g @shiwenbin1617/pstack
 ### 其他安装方式
 
 ```bash
-pstack add --core            # 核心入口及其自动展开的运行依赖
+pstack add --core            # 核心入口及其自动展开的运行依赖，共 39 个
 pstack add --all             # 全装 44 个
 pstack add how why           # 按名字装指定技能
+pstack add --core --host codex --memory   # 只装 Codex，并写入 AGENTS.md
 ```
 
 ### 管理命令
@@ -103,8 +110,28 @@ pstack doctor                # 检查两端的安装状态
 | `--host claude` / `codex` / `both` | 只装给指定 agent。默认自动探测本机装了哪些 |
 | `--scope user` / `project` | 装到全局 `~/`，还是当前仓库的 `./.claude/`、`./.agents/`。默认 user |
 | `--copy` | 显式使用独立副本；当前也是默认且唯一模式 |
+| `--memory` / `--no-memory` | 写不写 CLAUDE.md / AGENTS.md 里那段 pstack 说明。不给这个选项时，交互安装会问一次，非交互安装默认不写 |
 | `--dry-run` | 只打印会做什么，不写任何文件 |
 | `-y` / `--yes` | 跳过确认 |
+
+### 写进 CLAUDE.md / AGENTS.md
+
+装完技能，agent 未必知道它们存在。`--memory` 会往常驻指令文件里写一段说明：装了什么、怎么调用、模型配置在哪。
+
+写哪个文件由 host 和 scope 决定。Claude Code 写 `CLAUDE.md`，Codex 写 `AGENTS.md`；`--scope project` 写当前仓库根目录，`--scope user` 写 `~/.claude/CLAUDE.md` 和 `~/.codex/AGENTS.md`。
+
+那段内容夹在两个标记之间，标记之外的东西 pstack 不碰：
+
+```markdown
+<!-- pstack:start -->
+## pstack
+
+Rigorous agent workflows, installed as skills in `~/.claude/skills`.
+Invoke one by name: `/architect`, `/how`, `/interrogate`, ...
+<!-- pstack:end -->
+```
+
+重复安装会原地替换这一段，不会越写越长。`pstack update` 只刷新已经存在的那一段，不会给没有的文件新加。卸载完最后一个技能时，这一段会被一起删掉，你自己写的内容原样保留。
 
 ### 分发给同事
 

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   REPO_ROOT, HOSTS, findSkills, installSkill, installAgents,
   listInstalled, removeSkill, CORE_SKILLS, expandSkillDependencies,
+  writeMemory, removeMemory, hasMemory,
 } from "../scripts/lib.mjs";
 
 const c = {
@@ -41,6 +42,7 @@ function help() {
   console.log(`    --host <claude|codex|both>     ${paint(c.grey, "Target agent (default: both, detected)")}`);
   console.log(`    --scope <user|project>         ${paint(c.grey, "Install globally or into this repo (default: user)")}`);
   console.log(`    --copy                         ${paint(c.grey, "Install independent host-specific copies (default)")}`);
+  console.log(`    --memory / --no-memory         ${paint(c.grey, "Write the pstack block into CLAUDE.md / AGENTS.md")}`);
   console.log(`    --core                         ${paint(c.grey, "Core entry set plus required dependencies, no prompts")}`);
   console.log(`    --all                          ${paint(c.grey, "Every skill, no prompts")}`);
   console.log(`    -y, --yes                      ${paint(c.grey, "Skip confirmation")}`);
@@ -49,13 +51,15 @@ function help() {
 }
 
 function parseArgs(argv) {
-  const opts = { _: [], host: null, scope: "user", core: false, all: false, yes: false, dryRun: false };
+  const opts = { _: [], host: null, scope: "user", core: false, all: false, yes: false, dryRun: false, memory: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--host") opts.host = argv[++i];
     else if (a === "--scope") opts.scope = argv[++i];
     else if (a === "--link") { console.error(paint(c.red, "--link was removed: Claude Code and Codex installs must stay independent.")); process.exit(1); }
     else if (a === "--copy") {}
+    else if (a === "--memory") opts.memory = true;
+    else if (a === "--no-memory") opts.memory = false;
     else if (a === "--core") opts.core = true;
     else if (a === "--all") opts.all = true;
     else if (a === "-y" || a === "--yes") opts.yes = true;
@@ -146,6 +150,49 @@ function multiSelect(items, { preselected = new Set(), title }) {
   });
 }
 
+/** Arrow keys to move, enter to pick one. Returns null on cancel. */
+function singleSelect(items, { title, initial = 0 }) {
+  return new Promise((resolve) => {
+    let cursor = initial;
+    emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+
+    let lastLines = 0;
+    const render = () => {
+      if (lastLines) process.stdout.write(`\x1b[${lastLines}A\x1b[0J`);
+      const lines = [`${paint(c.bold, title)} ${paint(c.grey, "↑↓ move · enter confirm · esc cancel")}`];
+      items.forEach((it, i) => {
+        const pointer = i === cursor ? paint(c.cyan, "❯") : " ";
+        const label = i === cursor ? paint(c.bold, it.label) : it.label;
+        const hint = it.hint ? " " + paint(c.grey, it.hint) : "";
+        lines.push(`${pointer} ${label}${hint}`);
+      });
+      process.stdout.write(lines.join("\n") + "\n");
+      lastLines = lines.length;
+    };
+
+    const done = (result) => {
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+      process.stdin.removeListener("keypress", onKey);
+      process.stdout.write("\n");
+      resolve(result);
+    };
+
+    const onKey = (_str, key) => {
+      if (key.name === "up" || key.name === "k") cursor = (cursor - 1 + items.length) % items.length;
+      else if (key.name === "down" || key.name === "j") cursor = (cursor + 1) % items.length;
+      else if (key.name === "return") return done(items[cursor].value);
+      else if (key.name === "escape" || (key.ctrl && key.name === "c")) return done(null);
+      render();
+    };
+
+    process.stdin.on("keypress", onKey);
+    render();
+  });
+}
+
 function confirm(question) {
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -163,13 +210,26 @@ const NAME_COL = Math.max(...findSkills().map((s) => s.name.length)) + 2;
 
 async function cmdAdd(opts) {
   const catalog = findSkills();
-  const hosts = resolveHosts(opts);
+  let hosts = resolveHosts(opts);
   let names;
 
   if (opts.all) names = catalog.map((s) => s.dirName);
   else if (opts.core) names = CORE_SKILLS;
   else if (opts._.length) names = opts._;
   else if (isTTY()) {
+    console.log(paint(c.cyan, BANNER));
+    if (!opts.host) {
+      const detected = detectHosts();
+      const choices = [
+        { value: ["claude"], label: HOSTS.claude.label.padEnd(14), hint: detected.includes("claude") ? "detected" : "not detected" },
+        { value: ["codex"], label: HOSTS.codex.label.padEnd(14), hint: detected.includes("codex") ? "detected" : "not detected" },
+        { value: ["claude", "codex"], label: "Both".padEnd(14), hint: "independent copies for each" },
+      ];
+      const initial = detected.length > 1 ? 2 : Math.max(0, choices.findIndex((ch) => ch.value[0] === (detected[0] || "claude")));
+      const picked = await singleSelect(choices, { title: "Install for which agent?", initial });
+      if (picked === null) { console.log(paint(c.grey, "cancelled.")); return; }
+      hosts = picked;
+    }
     const width = Math.max(20, (process.stdout.columns || 80) - NAME_COL - 10);
     const items = catalog.map((s) => ({
       value: s.dirName,
@@ -177,7 +237,6 @@ async function cmdAdd(opts) {
       hint: truncate(s.description.replace(/\s+/g, " "), width),
     }));
     const preselected = new Set(CORE_SKILLS.filter((n) => catalog.some((s) => s.dirName === n)));
-    console.log(paint(c.cyan, BANNER));
     console.log(`  installing to: ${paint(c.bold, hosts.map((h) => HOSTS[h].label).join(" + "))}  ${paint(c.grey, "(" + opts.scope + " scope)")}\n`);
     const picked = await multiSelect(items, { preselected, title: "Select skills to install" });
     if (picked === null) { console.log(paint(c.grey, "cancelled.")); return; }
@@ -199,8 +258,15 @@ async function cmdAdd(opts) {
   const selected = expandSkillDependencies(requested, catalog);
   const addedDependencies = selected.filter((skill) => !requested.includes(skill));
   if (!opts.yes && !opts.dryRun && isTTY()) {
-    const ok = await confirm(`install ${paint(c.bold, String(selected.length))} skills to ${hosts.map((h) => HOSTS[h].label).join(" + ")}?`);
+    const split = addedDependencies.length ? paint(c.grey, ` (${requested.length} picked, ${addedDependencies.length} referenced)`) : "";
+    const ok = await confirm(`install ${paint(c.bold, String(selected.length))} skills to ${hosts.map((h) => HOSTS[h].label).join(" + ")}${split}?`);
     if (!ok) { console.log(paint(c.grey, "cancelled.")); return; }
+  }
+
+  let memory = opts.memory;
+  if (memory === null) {
+    const files = hosts.map((h) => HOSTS[h].memoryFile(opts.scope)).join(" and ");
+    memory = !opts.dryRun && isTTY() && !opts.yes ? await confirm(`add the pstack block to ${paint(c.bold, files)}?`) : false;
   }
 
   if (addedDependencies.length) console.log(`\n${paint(c.grey, `added ${addedDependencies.length} required skill dependencies`)}`);
@@ -213,6 +279,10 @@ async function cmdAdd(opts) {
     }
     const agentsDir = installAgents({ host, scope: opts.scope, dryRun: opts.dryRun });
     if (agentsDir) console.log(`  ${paint(c.green, "✓")} agents ${paint(c.grey, "→ " + agentsDir)}`);
+    if (memory) {
+      const file = writeMemory({ host, scope: opts.scope, skills: selected, dryRun: opts.dryRun });
+      console.log(`  ${paint(c.green, "✓")} memory ${paint(c.grey, "→ " + (file || HOSTS[host].memoryFile(opts.scope) + " (already current)"))}`);
+    }
   }
 
   if (opts.dryRun) { console.log(`\n${paint(c.yellow, "dry run — nothing written.")}`); return; }
@@ -242,6 +312,11 @@ async function cmdRemove(opts) {
     for (const n of names) {
       const removed = removeSkill(n, { host, scope: opts.scope, dryRun: opts.dryRun });
       console.log(removed ? `  ${paint(c.green, "✓")} removed ${n}` : `  ${paint(c.grey, "· not installed: " + n)}`);
+    }
+    // The block only describes installed skills, so it goes with the last of them.
+    if (!listInstalled({ host, scope: opts.scope }).length) {
+      const file = removeMemory({ host, scope: opts.scope, dryRun: opts.dryRun });
+      if (file) console.log(`  ${paint(c.green, "✓")} removed the pstack block ${paint(c.grey, "→ " + file)}`);
     }
   }
   console.log("");
@@ -280,6 +355,11 @@ async function cmdUpdate(opts) {
       console.log(`  ${paint(c.green, "✓")} ${s.name}`);
     }
     installAgents({ host, scope: opts.scope, dryRun: opts.dryRun });
+    // Refresh the block only where one already exists; update never introduces it.
+    if (opts.memory !== false && (opts.memory || hasMemory({ host, scope: opts.scope }))) {
+      const file = writeMemory({ host, scope: opts.scope, skills: selected, dryRun: opts.dryRun });
+      if (file) console.log(`  ${paint(c.green, "✓")} memory ${paint(c.grey, "→ " + file)}`);
+    }
   }
   console.log("");
 }
@@ -306,7 +386,8 @@ function cmdDoctor(opts) {
     for (const scope of ["user", "project"]) {
       const dir = HOSTS[host].skillsDir(scope);
       const n = listInstalled({ host, scope }).length;
-      console.log(`      ${scope.padEnd(8)} ${n ? paint(c.green, n + " installed") : paint(c.grey, "0 installed")}  ${paint(c.grey, dir)}`);
+      const memory = hasMemory({ host, scope }) ? paint(c.grey, "  · block in " + HOSTS[host].memoryFile(scope)) : "";
+      console.log(`      ${scope.padEnd(8)} ${n ? paint(c.green, n + " installed") : paint(c.grey, "0 installed")}  ${paint(c.grey, dir)}${memory}`);
     }
   }
   console.log("");

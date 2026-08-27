@@ -57,7 +57,13 @@ The goal is not more output. It is less output where every line holds up.
 npx @shiwenbin1617/pstack add
 ```
 
-Pick your skills interactively. Arrow keys move, `space` toggles, `a` selects all, `enter` confirms. Ten core entry points come preselected, and their runtime dependencies get pulled in for you.
+First pick the agent: Claude Code, Codex, or both. The cursor starts on whichever host is detected on this machine.
+
+Then pick your skills. Arrow keys move, `space` toggles, `a` selects all, `enter` confirms. Ten core entry points come preselected.
+
+**The set is coupled and only works installed whole.** `poteto-mode` reads all 33 principle skills, so whatever you pick, the installer pulls in what it references. The preselected core lands on 39 of the 44. `pstack add --all` saves you the arithmetic.
+
+Last, it asks once whether to write the pstack block into CLAUDE.md / AGENTS.md. See "Writing into CLAUDE.md / AGENTS.md" below.
 
 To type less, install it globally. The command is then `pstack`.
 
@@ -70,9 +76,10 @@ npm i -g @shiwenbin1617/pstack
 ### Other ways to install
 
 ```bash
-pstack add --core            # core entry points plus their dependencies
+pstack add --core            # core entry points plus their dependencies, 39 of them
 pstack add --all             # all 44
 pstack add how why           # named skills only
+pstack add --core --host codex --memory   # Codex only, and write AGENTS.md
 ```
 
 ### Managing what you installed
@@ -103,8 +110,28 @@ Each host always gets **independent copies**. Claude Code and Codex use differen
 | `--host claude` / `codex` / `both` | Target one agent. Defaults to whichever hosts are detected on this machine |
 | `--scope user` / `project` | Install into `~/`, or into this repo at `./.claude/` and `./.agents/`. Defaults to user |
 | `--copy` | Ask for independent copies explicitly. Currently the default and the only mode |
+| `--memory` / `--no-memory` | Whether to write the pstack block into CLAUDE.md / AGENTS.md. Without the flag, an interactive install asks and a non-interactive one writes nothing |
 | `--dry-run` | Print what would happen. Write nothing |
 | `-y` / `--yes` | Skip the confirmation |
+
+### Writing into CLAUDE.md / AGENTS.md
+
+Installed skills are not much use if the agent never learns they exist. `--memory` writes a block into the always-loaded instruction file naming what is installed, how to invoke it, and where the model config lives.
+
+Which file depends on host and scope. Claude Code gets `CLAUDE.md`, Codex gets `AGENTS.md`. `--scope project` writes into the repo root, `--scope user` writes `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`.
+
+The block sits between two markers, and pstack never touches anything outside them.
+
+```markdown
+<!-- pstack:start -->
+## pstack
+
+Rigorous agent workflows, installed as skills in `~/.claude/skills`.
+Invoke one by name: `/architect`, `/how`, `/interrogate`, ...
+<!-- pstack:end -->
+```
+
+Installing again replaces that block in place rather than appending a second one. `pstack update` refreshes a block that is already there and never introduces one. Removing the last skill removes the block, leaving everything you wrote intact.
 
 ### Giving it to your team
 
