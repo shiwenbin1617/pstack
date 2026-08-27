@@ -6,9 +6,17 @@
 
 一套 Markdown 规则，逼 AI 在动手前把问题想清楚、动手后拿出运行时证据，而不是写完就说"改好了"。
 
+[![npm](https://img.shields.io/npm/v/@shiwenbin1617/pstack?color=cb3837&logo=npm)](https://www.npmjs.com/package/@shiwenbin1617/pstack)
+[![license](https://img.shields.io/npm/l/@shiwenbin1617/pstack?color=blue)](./LICENSE)
+[![node](https://img.shields.io/node/v/@shiwenbin1617/pstack)](https://nodejs.org)
+
 [安装](#安装) · [使用](#使用) · [工作原理](#工作原理) · [技能清单](#技能清单) · [常见问题](#常见问题)
 
 同时支持 **Claude Code** 和 **Codex** · 44 个技能 · 23 个 playbook · 21 条工程原则
+
+```bash
+npx @shiwenbin1617/pstack add
+```
 
 </div>
 
@@ -235,6 +243,8 @@ Codex 上把 `/` 换成 `$`，例如 `$poteto-mode`。
 
 | 想做什么 | 看哪里 |
 |---|---|
+| 装包 / 看版本历史 | [npm: `@shiwenbin1617/pstack`](https://www.npmjs.com/package/@shiwenbin1617/pstack) · [GitHub Releases](https://github.com/shiwenbin1617/pstack/releases) |
+| 提 issue 或 PR | [github.com/shiwenbin1617/pstack](https://github.com/shiwenbin1617/pstack) |
 | 了解移植时改了什么 | [`adapters/claude-code.md`](./adapters/claude-code.md) · [`adapters/codex.md`](./adapters/codex.md) |
 | 跟着原作者走一遍完整任务 | [`docs/guide/`](./docs/guide/README.md) |
 | 改技能后做校验 | `node scripts/build.mjs --check` |
