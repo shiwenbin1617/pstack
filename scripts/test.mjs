@@ -18,9 +18,13 @@ import {
   REPO_ROOT,
   expandSkillDependencies,
   findSkills,
+  hasMemory,
   installAgents,
   installSkill,
+  removeMemory,
+  writeMemory,
 } from "./lib.mjs";
+import { writeFileSync } from "node:fs";
 
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
 const check = spawnSync(process.execPath, [join(scriptsDir, "build.mjs")], {
@@ -98,6 +102,32 @@ try {
   assert.match(codexSetup, /~\/\.codex\/pstack-models\.md/);
   assert.doesNotMatch(claudeSetup, /~\/\.codex/);
   assert.doesNotMatch(codexSetup, /~\/\.claude/);
+
+  // The memory block appends to whatever the user already wrote, and rewrites in place.
+  const claudeMemory = join(testRoot, "CLAUDE.md");
+  const codexMemory = join(testRoot, "AGENTS.md");
+  writeFileSync(claudeMemory, "# House rules\n\nRun the linter.\n");
+
+  for (const host of ["claude", "codex"]) {
+    assert.equal(hasMemory({ host, scope: "project" }), false);
+    writeMemory({ host, scope: "project", skills: selected });
+    assert.equal(hasMemory({ host, scope: "project" }), true);
+    assert.equal(writeMemory({ host, scope: "project", skills: selected }), null, "rewriting the same block is a no-op");
+  }
+
+  const claudeBody = readFileSync(claudeMemory, "utf8");
+  assert.match(claudeBody, /Run the linter\./);
+  assert.match(claudeBody, /\/poteto-mode/);
+  assert.match(claudeBody, /~\/\.claude\/pstack-models\.md/);
+  assert.equal(claudeBody.match(/pstack:start/g).length, 1);
+
+  const codexBody = readFileSync(codexMemory, "utf8");
+  assert.match(codexBody, /\$poteto-mode/);
+  assert.doesNotMatch(codexBody, /\.claude|Claude Code/);
+
+  removeMemory({ host: "claude", scope: "project" });
+  assert.equal(hasMemory({ host: "claude", scope: "project" }), false);
+  assert.equal(readFileSync(claudeMemory, "utf8"), "# House rules\n\nRun the linter.\n");
 } finally {
   process.chdir(originalCwd);
   rmSync(testRoot, { recursive: true, force: true });

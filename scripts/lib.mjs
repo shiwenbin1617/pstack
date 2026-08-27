@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync, lstatSync, mkdirSync, rmSync, cpSync, existsSync, realpathSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, lstatSync, mkdirSync, rmSync, cpSync, existsSync, realpathSync, writeFileSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,7 @@ export const HOSTS = {
     skillsDir: (scope) => (scope === "project" ? join(process.cwd(), ".claude", "skills") : join(homedir(), ".claude", "skills")),
     agentsDir: (scope) => (scope === "project" ? join(process.cwd(), ".claude", "agents") : join(homedir(), ".claude", "agents")),
     memoryFile: (scope) => (scope === "project" ? join(process.cwd(), "CLAUDE.md") : join(homedir(), ".claude", "CLAUDE.md")),
+    modelConfig: "~/.claude/pstack-models.md",
     invoke: (name) => `/${name}`,
   },
   codex: {
@@ -23,6 +24,7 @@ export const HOSTS = {
     skillsDir: (scope) => (scope === "project" ? join(process.cwd(), ".agents", "skills") : join(homedir(), ".agents", "skills")),
     agentsDir: (scope) => (scope === "project" ? join(process.cwd(), ".codex", "agents") : join(homedir(), ".codex", "agents")),
     memoryFile: (scope) => (scope === "project" ? join(process.cwd(), "AGENTS.md") : join(homedir(), ".codex", "AGENTS.md")),
+    modelConfig: "~/.codex/pstack-models.md",
     invoke: (name) => `$${name}`,
   },
 };
@@ -108,6 +110,74 @@ export function installAgents({ host, scope, dryRun = false }) {
     cpSync(join(sourceDir, f), join(dir, f));
   }
   return dir;
+}
+
+const MEMORY_START = "<!-- pstack:start -->";
+const MEMORY_END = "<!-- pstack:end -->";
+
+/** The managed block pstack owns inside CLAUDE.md / AGENTS.md. Everything else in the file is the user's. */
+export function memoryBlock({ host, scope, skills = [] }) {
+  const h = HOSTS[host];
+  const entries = skills.filter((s) => CORE_SKILLS.includes(s.dirName)).map((s) => h.invoke(s.name));
+  const shown = entries.length ? entries : skills.map((s) => h.invoke(s.name));
+  return [
+    MEMORY_START,
+    "## pstack",
+    "",
+    `Rigorous agent workflows, installed as skills in \`${h.skillsDir(scope)}\`.`,
+    `Invoke one by name: ${shown.slice(0, 6).map((i) => `\`${i}\``).join(", ")}.`,
+    "",
+    `Reach for \`${h.invoke("poteto-mode")}\` on a non-trivial task that wants the full workflow. Mode activation is`,
+    "explicit and scoped to one task, so invoke it again for the next one.",
+    "",
+    `When a pstack skill asks for a per-role model, read \`${h.modelConfig}\`.`,
+    MEMORY_END,
+  ].join("\n");
+}
+
+/**
+ * Write the managed block into the host's memory file, replacing an earlier one so
+ * reinstalls stay idempotent. Returns the path, or null when nothing changed.
+ */
+export function writeMemory({ host, scope, skills = [], dryRun = false }) {
+  const file = HOSTS[host].memoryFile(scope);
+  const block = memoryBlock({ host, scope, skills });
+  const existing = existsSync(file) ? readFileSync(file, "utf8") : "";
+  const start = existing.indexOf(MEMORY_START);
+  const end = existing.indexOf(MEMORY_END);
+
+  let next;
+  if (start !== -1 && end > start) {
+    next = existing.slice(0, start) + block + existing.slice(end + MEMORY_END.length);
+  } else {
+    next = existing.trimEnd();
+    next = next ? `${next}\n\n${block}\n` : `${block}\n`;
+  }
+  if (next === existing) return null;
+  if (dryRun) return file;
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, next);
+  return file;
+}
+
+/** Whether the host's memory file already carries a pstack block. */
+export function hasMemory({ host, scope }) {
+  const file = HOSTS[host].memoryFile(scope);
+  return existsSync(file) && readFileSync(file, "utf8").includes(MEMORY_START);
+}
+
+/** Drop the managed block, leaving the rest of the file untouched. */
+export function removeMemory({ host, scope, dryRun = false }) {
+  const file = HOSTS[host].memoryFile(scope);
+  if (!existsSync(file)) return null;
+  const existing = readFileSync(file, "utf8");
+  const start = existing.indexOf(MEMORY_START);
+  const end = existing.indexOf(MEMORY_END);
+  if (start === -1 || end < start) return null;
+  const next = (existing.slice(0, start).trimEnd() + "\n" + existing.slice(end + MEMORY_END.length).trimStart()).trim();
+  if (dryRun) return file;
+  writeFileSync(file, next ? next + "\n" : "");
+  return file;
 }
 
 export function expandSkillDependencies(selected, catalog = findSkills()) {
