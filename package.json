@@ -1,6 +1,6 @@
 {
   "name": "@shiwenbin1617/pstack",
-  "version": "0.14.4",
+  "version": "0.15.0",
   "description": "if you want to go fast, go deep first. rigorous agent workflows for Claude Code and Codex. ported from poteto's pstack.",
   "bin": {
     "pstack": "bin/pstack.mjs"
