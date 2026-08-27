@@ -31,12 +31,12 @@ const version = () => {
 function help() {
   console.log(paint(c.cyan, BANNER));
   console.log(`  ${paint(c.dim, "if you want to go fast, go deep first.")}  ${paint(c.grey, "v" + version())}\n`);
-  console.log(`  $ npx pstack add [skills...]     ${paint(c.grey, "Install skills (interactive by default)")}`);
-  console.log(`  $ npx pstack list                ${paint(c.grey, "List installed pstack skills")}`);
-  console.log(`  $ npx pstack remove [skills...]  ${paint(c.grey, "Remove installed skills")}`);
-  console.log(`  $ npx pstack update              ${paint(c.grey, "Reinstall everything already installed")}`);
-  console.log(`  $ npx pstack find [query]        ${paint(c.grey, "Search the catalog")}`);
-  console.log(`  $ npx pstack doctor              ${paint(c.grey, "Show where skills are installed")}\n`);
+  console.log(`  $ pstack add [skills...]     ${paint(c.grey, "Install skills (interactive by default)")}`);
+  console.log(`  $ pstack list                ${paint(c.grey, "List installed pstack skills")}`);
+  console.log(`  $ pstack remove [skills...]  ${paint(c.grey, "Remove installed skills")}`);
+  console.log(`  $ pstack update              ${paint(c.grey, "Reinstall everything already installed")}`);
+  console.log(`  $ pstack find [query]        ${paint(c.grey, "Search the catalog")}`);
+  console.log(`  $ pstack doctor              ${paint(c.grey, "Show where skills are installed")}\n`);
   console.log(`  ${paint(c.bold, "Options")}`);
   console.log(`    --host <claude|codex|both>     ${paint(c.grey, "Target agent (default: both, detected)")}`);
   console.log(`    --scope <user|project>         ${paint(c.grey, "Install globally or into this repo (default: user)")}`);
@@ -45,7 +45,7 @@ function help() {
   console.log(`    --all                          ${paint(c.grey, "Every skill, no prompts")}`);
   console.log(`    -y, --yes                      ${paint(c.grey, "Skip confirmation")}`);
   console.log(`    --dry-run                      ${paint(c.grey, "Print what would happen")}\n`);
-  console.log(`  ${paint(c.grey, "try: npx pstack add --core")}\n`);
+  console.log(`  ${paint(c.grey, "try: pstack add --core  ·  npx @shiwenbin1617/pstack add --core")}\n`);
 }
 
 function parseArgs(argv) {

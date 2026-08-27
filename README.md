@@ -44,28 +44,38 @@ AI 写代码的默认失败模式是：看上去合理、跑不起来、或者�
 ## 安装
 
 ```bash
-npx pstack add
+npx @shiwenbin1617/pstack add
 ```
 
 交互式勾选要装哪些技能：`↑↓` 移动，`空格` 勾选，`a` 全选，`回车` 确认。默认预选 10 个核心入口，安装时自动补齐它们引用的运行依赖。
 
+嫌包名长就装成全局，之后命令就是 `pstack`：
+
+```bash
+npm i -g @shiwenbin1617/pstack
+```
+
+> npm 上那个无 scope 的 `pstack` 是 2015 年一个同名的无关包，不是这个项目。
+
 ### 其他安装方式
 
 ```bash
-npx pstack add --core        # 核心入口及其自动展开的运行依赖
-npx pstack add --all         # 全装 44 个
-npx pstack add how why       # 按名字装指定技能
+pstack add --core            # 核心入口及其自动展开的运行依赖
+pstack add --all             # 全装 44 个
+pstack add how why           # 按名字装指定技能
 ```
 
 ### 管理命令
 
 ```bash
-npx pstack list              # 看装了什么、装在哪
-npx pstack find review       # 按关键词搜技能
-npx pstack update            # 重装已安装的（升级用）
-npx pstack remove            # 交互式卸载
-npx pstack doctor            # 检查两端的安装状态
+pstack list                  # 看装了什么、装在哪
+pstack find review           # 按关键词搜技能
+pstack update                # 重装已安装的（升级用）
+pstack remove                # 交互式卸载
+pstack doctor                # 检查两端的安装状态
 ```
+
+以上都可以不装全局，改写成 `npx @shiwenbin1617/pstack <命令>`。
 
 ### 安装位置
 
@@ -91,10 +101,10 @@ npx pstack doctor            # 检查两端的安装状态
 同事只需要一行：
 
 ```bash
-npx pstack add --core
+npx @shiwenbin1617/pstack add --core
 ```
 
-想固定版本或走内部源，把这个仓库发布到 npm 或私有 registry，之后运行 `npx <你的包名> add`。项目不提供 Claude Code plugin 入口，避免插件加载绕过 host adapter；Claude Code 和 Codex 都只通过 CLI 安装各自的独立产物。
+想固定版本或走内部源，把这个仓库发到私有 registry，之后运行 `npx <你的包名> add`。项目不提供 Claude Code plugin 入口，避免插件加载绕过 host adapter；Claude Code 和 Codex 都只通过 CLI 安装各自的独立产物。
 
 ---
 
@@ -217,7 +227,7 @@ Codex 上把 `/` 换成 `$`，例如 `$poteto-mode`。
 
 </details>
 
-跑 `npx pstack find` 看带描述的完整列表。
+跑 `pstack find` 看带描述的完整列表。
 
 ---
 
@@ -262,7 +272,7 @@ pstack 是**按需加载**的技能。44 个技能只有描述行常驻，agent 
 
 不会。常驻的只有每个技能的 `description` 那一行，正文按需加载。
 
-Codex 那边有个硬限制：技能索引最多占 context 的 2% 或 8000 字符（取小），超了会先截断长描述。pstack 的描述都控制得比较紧，但如果你还装了别的技能包导致被截断，用 `npx pstack add` 挑一部分装，别 `--all`。
+Codex 那边有个硬限制：技能索引最多占 context 的 2% 或 8000 字符（取小），超了会先截断长描述。pstack 的描述都控制得比较紧，但如果你还装了别的技能包导致被截断，用 `pstack add` 挑一部分装，别 `--all`。
 
 </details>
 
@@ -293,7 +303,7 @@ pstack 是**无状态**的——它管"干一件事的方法和标准"，不记�
 <details>
 <summary><b>怎么改成我们团队自己的？</b></summary>
 
-公共方法论在 `skills/`，host 差异在 `adapters/claude-code/` 与 `adapters/codex/`。修改后运行 `node scripts/build.mjs --check`，再分别 `npx pstack update --host claude` 和 `npx pstack update --host codex`。已安装目录不会互相同步。
+公共方法论在 `skills/`，host 差异在 `adapters/claude-code/` 与 `adapters/codex/`。修改后运行 `node scripts/build.mjs --check`，再分别 `pstack update --host claude` 和 `pstack update --host codex`。已安装目录不会互相同步。
 
 改完跑 `node scripts/build.mjs --check`，它会检查 frontmatter 合法性、目录名冲突、相对链接可达、以及有没有写死模型名或某个 host 的工具名。
 
