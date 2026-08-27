@@ -14,6 +14,8 @@
 
 同时支持 **Claude Code** 和 **Codex** · 44 个技能 · 23 个 playbook · 21 条工程原则
 
+中文 · [English](./README.en.md)
+
 ```bash
 npx @shiwenbin1617/pstack add
 ```
