@@ -9,7 +9,7 @@
  * invocations, agent definitions, and runtime vocabulary.
  */
 import { mkdirSync, rmSync, cpSync, writeFileSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { REPO_ROOT, SKILLS_DIR, AGENTS_DIR, CODEX_ADAPTER_DIR, CLAUDE_ADAPTER_DIR, findSkills } from "./lib.mjs";
 import { adaptCopiedSkillTree, adaptMarkdownForHost } from "./host-adapters.mjs";
 
@@ -43,6 +43,7 @@ const brokenLinks = [];
 for (const s of skills) {
   const walk = (dir) => {
     for (const e of readdirSync(dir)) {
+      if (e === "node_modules") continue;
       const p = join(dir, e);
       if (statSync(p).isDirectory()) { walk(p); continue; }
       if (!p.endsWith(".md")) continue;
@@ -52,7 +53,7 @@ for (const s of skills) {
         // Skip template placeholders like [PR #123](url) and [x]({path}).
         if (!target || target.startsWith("{") || !/[./]/.test(target)) continue;
         try { statSync(join(dir, target)); }
-        catch { brokenLinks.push(`${s.name}: ${p.replace(REPO_ROOT + "/", "")} → ${target}`); }
+        catch { brokenLinks.push(`${s.name}: ${relative(REPO_ROOT, p)} → ${target}`); }
       }
     }
   };
@@ -62,6 +63,7 @@ for (const s of skills) {
 const codexLeaks = [];
 const claudeLeaks = [];
 const runtimeLeaks = [];
+const portabilityLeaks = [];
 const skillNames = skills.map((skill) => skill.name);
 const CODEX_LEAK_PATTERNS = [
   [/\.claude\//, "Claude path"],
@@ -81,6 +83,13 @@ const RUNTIME_LEAK_PATTERNS = [
   [/\bgrok-[a-z0-9.-]+/i, "hard-coded model slug"],
   [/Bun\.spawnSync\([\s\S]{0,200}["']install["']/, "implicit package installation"],
 ];
+const PORTABILITY_LEAK_PATTERNS = [
+  [new RegExp(["worktree-audit", "\\.sh"].join("")), "deleted worktree audit helper"],
+  [new RegExp(["log", "\\.sh"].join("")), "deleted decision log helper"],
+  [/\bpwd\s*\|\s*tr\s+\/\s+-/, "workspace slug shell pipeline"],
+  [/\bls\s+-t[^\n]*\.jsonl/, "shell transcript ordering"],
+  [/\bfind\s+[^\n]*\.jsonl/, "shell transcript discovery"],
+];
 for (const [pattern, why] of CODEX_LEAK_PATTERNS) {
   const match = pattern.exec(CODEX_AGENTS_CONTENT);
   if (match) codexLeaks.push(`generated Codex AGENTS.md: ${why} (${match[0]})`);
@@ -92,6 +101,7 @@ for (const s of skills) {
   const source = nativeCodex ? override : s.path;
   const walk = (dir) => {
     for (const e of readdirSync(dir)) {
+      if (e === "node_modules") continue;
       const p = join(dir, e);
       if (statSync(p).isDirectory()) { walk(p); continue; }
       if (!p.endsWith(".md")) continue;
@@ -99,7 +109,7 @@ for (const s of skills) {
       const body = nativeCodex ? raw : adaptMarkdownForHost(raw, { host: "codex", skillNames });
       for (const [pat, why] of CODEX_LEAK_PATTERNS) {
         const m = pat.exec(body);
-        if (m) codexLeaks.push(`${p.replace(REPO_ROOT + "/", "")}: ${why} (${m[0]})`);
+        if (m) codexLeaks.push(`${relative(REPO_ROOT, p)}: ${why} (${m[0]})`);
       }
     }
   };
@@ -109,6 +119,7 @@ for (const s of skills) {
 const runtimeDir = join(SKILLS_DIR, "poteto-mode", "scripts");
 const scanRuntime = (dir) => {
   for (const entry of readdirSync(dir)) {
+    if (entry === "node_modules") continue;
     const path = join(dir, entry);
     if (statSync(path).isDirectory()) {
       scanRuntime(path);
@@ -117,11 +128,31 @@ const scanRuntime = (dir) => {
     const body = readFileSync(path, "utf8");
     for (const [pattern, why] of RUNTIME_LEAK_PATTERNS) {
       const match = pattern.exec(body);
-      if (match) runtimeLeaks.push(`${path.replace(REPO_ROOT + "/", "")}: ${why} (${match[0]})`);
+      if (match) runtimeLeaks.push(`${relative(REPO_ROOT, path)}: ${why} (${match[0]})`);
     }
   }
 };
 scanRuntime(runtimeDir);
+
+for (const skill of skills) {
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir)) {
+      if (entry === "node_modules") continue;
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) {
+        walk(path);
+        continue;
+      }
+      if (!/\.(?:md|mjs|ts)$/.test(path)) continue;
+      const body = readFileSync(path, "utf8");
+      for (const [pattern, why] of PORTABILITY_LEAK_PATTERNS) {
+        const match = pattern.exec(body);
+        if (match) portabilityLeaks.push(`${relative(REPO_ROOT, path)}: ${why} (${match[0]})`);
+      }
+    }
+  };
+  walk(skill.path);
+}
 
 for (const s of skills) {
   const override = join(CLAUDE_ADAPTER_DIR, "overrides", s.dirName);
@@ -129,6 +160,7 @@ for (const s of skills) {
   const source = nativeClaude ? override : s.path;
   const walk = (dir) => {
     for (const e of readdirSync(dir)) {
+      if (e === "node_modules") continue;
       const p = join(dir, e);
       if (statSync(p).isDirectory()) { walk(p); continue; }
       if (!p.endsWith(".md")) continue;
@@ -136,7 +168,7 @@ for (const s of skills) {
       const body = nativeClaude ? raw : adaptMarkdownForHost(raw, { host: "claude", skillNames });
       for (const [pat, why] of CLAUDE_LEAK_PATTERNS) {
         const m = pat.exec(body);
-        if (m) claudeLeaks.push(`${p.replace(REPO_ROOT + "/", "")}: ${why} (${m[0]})`);
+        if (m) claudeLeaks.push(`${relative(REPO_ROOT, p)}: ${why} (${m[0]})`);
       }
     }
   };
@@ -160,6 +192,7 @@ failed = report("broken relative links:", brokenLinks) || failed;
 failed = report("Claude-specific leaks in generated Codex skills:", codexLeaks) || failed;
 failed = report("Codex-specific leaks in generated Claude Code skills:", claudeLeaks) || failed;
 failed = report("Host/model leaks in shared runtime scripts:", runtimeLeaks) || failed;
+failed = report("POSIX-only instructions in installed artifacts:", portabilityLeaks) || failed;
 
 console.log(`checked ${skills.length} skills`);
 if (failed) process.exit(1);

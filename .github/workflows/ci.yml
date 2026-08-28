@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - run: npm test
+      - run: npm exec -- node scripts/test.mjs --pack-smoke
+      - uses: oven-sh/setup-bun@v2
+      - run: bun --cwd skills/poteto-mode/scripts install --frozen-lockfile
+      - run: bun test --cwd skills/poteto-mode/scripts orch watch-pr
+      - run: bun run --cwd skills/poteto-mode/scripts typecheck
+      - run: bunx tsc --allowImportingTsExtensions --module esnext --moduleResolution bundler --noEmit --skipLibCheck --strict --target esnext --types bun-types orch/orch.ts orch/store.ts orch/orch.test.ts
+        working-directory: skills/poteto-mode/scripts

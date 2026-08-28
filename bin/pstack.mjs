@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import { createInterface, emitKeypressEvents } from "node:readline";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   REPO_ROOT, HOSTS, findSkills, installSkill, installAgents,
   listInstalled, removeSkill, CORE_SKILLS, expandSkillDependencies,
-  writeMemory, removeMemory, hasMemory,
+  writeMemory, removeMemory, hasMemory, detectHosts,
 } from "../scripts/lib.mjs";
 
 const c = {
@@ -70,14 +70,6 @@ function parseArgs(argv) {
     else opts._.push(a);
   }
   return opts;
-}
-
-/** Which hosts look present on this machine. */
-function detectHosts() {
-  const found = [];
-  if (existsSync(join(process.env.HOME || "", ".claude"))) found.push("claude");
-  if (existsSync(join(process.env.HOME || "", ".codex")) || existsSync(join(process.env.HOME || "", ".agents"))) found.push("codex");
-  return found;
 }
 
 function resolveHosts(opts) {

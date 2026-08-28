@@ -29,6 +29,13 @@ export const HOSTS = {
   },
 };
 
+export function detectHosts({ homeDir = homedir(), pathExists = existsSync } = {}) {
+  const found = [];
+  if (pathExists(join(homeDir, ".claude"))) found.push("claude");
+  if (pathExists(join(homeDir, ".codex")) || pathExists(join(homeDir, ".agents"))) found.push("codex");
+  return found;
+}
+
 /** Parse the `name` and `description` out of a SKILL.md's YAML frontmatter. */
 export function parseFrontmatter(text) {
   const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
@@ -187,6 +194,7 @@ export function expandSkillDependencies(selected, catalog = findSkills()) {
   const readMarkdown = (dir) => {
     let body = "";
     for (const entry of readdirSync(dir)) {
+      if (entry === "node_modules") continue;
       const path = join(dir, entry);
       if (statSync(path).isDirectory()) body += readMarkdown(path);
       else if (path.endsWith(".md")) body += `\n${readFileSync(path, "utf8")}`;

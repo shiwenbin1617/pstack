@@ -46,6 +46,7 @@ The goal is not more output. It is less output where every line holds up.
 ## Requirements
 
 - Node.js >= 18
+- Windows, macOS, or Linux. The core CLI and Node helpers run natively without Bash, WSL, or GNU coreutils.
 - Claude Code or Codex. Install whichever you use. If both are present, pstack detects them.
 - Bun is optional. Only the full PR watcher in `babysit` and the ledger CLI in `orchestrate` need it. The helpers never install dependencies behind your back.
 

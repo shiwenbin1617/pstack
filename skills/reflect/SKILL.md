@@ -22,11 +22,7 @@ Skip when the conversation is trivial, off-topic, or already covered by an exist
 
 ### 1. Locate the active transcript
 
-The parent finds its own transcript file before fanning out. Transcripts for this workspace live in your host's transcript store. On Claude Code that is `~/.claude/projects/<slug>/<uuid>.jsonl`, where `<slug>` is the absolute workspace path with every `/` turned into `-` (so `/Users/you/proj` becomes `-Users-you-proj`, leading dash included; compute it with `pwd | tr / -`). On Codex it is `~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl`, which is not partitioned by workspace, so filter by the session's own cwd. Every line is one chat message. Scope to this workspace; never sweep the whole store, that reads private chats from unrelated projects.
-
-```bash
-ls -t ~/.claude/projects/"$(pwd | tr / -)"/*.jsonl 2>/dev/null | head -10
-```
+The parent finds its own transcript file before fanning out. Resolve `../recall/scripts/find-transcripts.mjs` relative to this `SKILL.md`. Run it with `node`, `--host claude`, `--workspace` set to the active workspace, and `--limit 10`. The helper reads JSONL `cwd` metadata and returns only this workspace's transcripts in modification-time order. Never replace it with a whole-store content scan, which can read private chats from unrelated projects.
 
 Three transcript layouts: legacy flat (`<id>.jsonl`), current nested (`<id>/<id>.jsonl`), and subagent (`<parent>/subagents/<child>.jsonl`).
 

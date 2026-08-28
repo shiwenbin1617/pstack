@@ -35,7 +35,7 @@ ts	phase	decision	why	evidence	result
 
 Write each entry the way you'd tell a teammate what you did. Plain words, concrete actions, no AI speak or abstract jargon (the **unslop** skill applies to log text too). A reviewer should understand each row without decoding it.
 
-Use the helper so rows stay well-formed: `scripts/log.sh <logfile> <phase> <decision> <why> <evidence> <result>`. It stamps `ts`, writes the header on first use, strips stray tabs/newlines, and prefixes any cell starting with `=`, `+`, `-`, or `@` with a single quote so a reviewer opening the log in a spreadsheet doesn't trigger formula execution. A bare `printf` appending a row works too, but mind those same bytes if cells come from generated or user-supplied text.
+Resolve `scripts/log.mjs` relative to this `SKILL.md`. Run it with `node`, followed by `<logfile> <phase> <decision> <why> <evidence> <result>`, so rows stay well-formed. It stamps `ts`, writes the header on first use, strips stray tabs and line breaks, and prefixes any cell starting with `=`, `+`, `-`, or `@` with a single quote. That prefix prevents spreadsheet formula execution when a reviewer opens the log.
 
 Log decision points and checkpoints, not every action: a fork chosen, a unit completed with its verification result, a pivot or revert with its trigger, a blocker surfaced, a gate fixed. For loop runs, one row per iteration. Skip the trivial and self-evident.
 
@@ -53,7 +53,7 @@ Commit it only when the work is ambitious enough that a reviewer needs the trail
 
 ## Audit the log against the transcript
 
-At the end of the run, before handing back, check the log told the truth. Read this run's transcript under your host's transcript store. On Claude Code that is `~/.claude/projects/<slug>/<uuid>.jsonl`, where `<slug>` is the absolute workspace path with every `/` turned into `-` (so `/Users/you/proj` becomes `-Users-you-proj`, leading dash included; compute it with `pwd | tr / -`). On Codex it is `~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl`, which is not partitioned by workspace, so filter by the session's own cwd. Every line is one chat message. Scope to this workspace; never sweep the whole store, that reads private chats from unrelated projects. Walk the log against what actually happened:
+At the end of the run, before handing back, check that the log told the truth. Resolve `../recall/scripts/find-transcripts.mjs` relative to this `SKILL.md`. Run it with `node`, `--host claude`, and `--workspace` set to the active workspace. The helper returns only exact workspace matches. Read this run's transcript from those paths, then walk the log against what happened:
 
 - Every row maps to a real action. Cut invented or aspirational entries.
 - Each row's evidence resolves and shows what the row claims.

@@ -46,6 +46,7 @@ AI 写代码的默认失败模式是：看上去合理、跑不起来、或者�
 ## 环境要求
 
 - Node.js >= 18
+- Windows、macOS 或 Linux。核心 CLI 与 Node helper 原生支持三者，不需要 Bash、WSL 或 GNU coreutils
 - Claude Code 或 Codex（装了哪个就用哪个，两个都装会自动识别）
 - Bun（可选；仅 `babysit` 的完整 PR watcher 和 `orchestrate` 账本 CLI 需要。helper 不会隐式安装依赖）
 

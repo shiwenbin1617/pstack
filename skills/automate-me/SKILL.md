@@ -26,7 +26,7 @@ Update mode changes the rest of the flow:
 
 ### 1. Mine their history
 
-Locate this workspace's transcripts before fanning out. They live in your host's transcript store. On Claude Code that is `~/.claude/projects/<slug>/<uuid>.jsonl`, where `<slug>` is the absolute workspace path with every `/` turned into `-` (so `/Users/you/proj` becomes `-Users-you-proj`, leading dash included; compute it with `pwd | tr / -`). On Codex it is `~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl`, which is not partitioned by workspace, so filter by the session's own cwd. Every line is one chat message. Scope to this workspace; never sweep the whole store, that reads private chats from unrelated projects.
+Locate this workspace's transcripts before fanning out. Resolve `../recall/scripts/find-transcripts.mjs` relative to this `SKILL.md`. Run it with `node`, `--host claude`, and `--workspace` set to the active workspace. The helper reads JSONL `cwd` metadata and returns only exact workspace matches in modification-time order. Never replace it with a whole-store content scan, which can read private chats from unrelated projects.
 
 Survey recent agent conversations within that scope for recurring patterns. Run multiple parallel subagents across slices of history (e.g. last 2-4 weeks, split into 3 slices so each has enough material). Each slice mining subagent reads transcripts from the workspace-scoped path the parent provides, looks for the signals below, and returns a short structured list of patterns it saw with evidence pointers. Default signals worth hunting:
 

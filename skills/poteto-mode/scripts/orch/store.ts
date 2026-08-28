@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
 import {
@@ -178,7 +177,23 @@ export interface OpenStoreOptions {
   readonly force?: boolean;
   readonly onLockStolen?: (holder: string) => void;
   readonly onStaleLock?: (holder: string) => void;
+  readonly executeCommand?: CommandExecutor;
 }
+
+export interface CommandSpec {
+  readonly file: string;
+  readonly args: readonly string[];
+  readonly cwd: string;
+  readonly env?: Readonly<Record<string, string | undefined>>;
+}
+
+export interface CommandResult {
+  readonly exitCode: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+export type CommandExecutor = (spec: CommandSpec) => CommandResult;
 
 export interface Store {
   readonly units: {
@@ -245,10 +260,6 @@ function errorCode(error: unknown): string | null {
     return error.code;
   }
   return null;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1063,26 +1074,53 @@ function parseGtBranches(raw: string): readonly string[] {
   return branches.slice(1);
 }
 
+function executeWithBun(spec: CommandSpec): CommandResult {
+  const result = Bun.spawnSync([spec.file, ...spec.args], {
+    cwd: spec.cwd,
+    env: spec.env ?? process.env,
+    stdin: "ignore",
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  return {
+    exitCode: result.exitCode,
+    stdout: result.stdout.toString(),
+    stderr: result.stderr.toString(),
+  };
+}
+
+function checkedCommand(
+  executeCommand: CommandExecutor,
+  spec: CommandSpec,
+  label: string
+): string {
+  const result = executeCommand(spec);
+  if (result.exitCode !== 0) {
+    const detail = result.stderr.trim();
+    throw new UserError(`${label} failed${detail ? `: ${detail}` : ""}`);
+  }
+  return result.stdout;
+}
+
 function graphitePullRequest({
   branch,
   repo,
+  executeCommand,
 }: {
   branch: string;
   repo: string;
+  executeCommand: CommandExecutor;
 }): GtPullRequest {
-  let raw: string;
-  try {
-    raw = execFileSync("gt", ["--no-interactive", "info", branch], {
+  const raw = checkedCommand(
+    executeCommand,
+    {
+      file: "gt",
+      args: ["--no-interactive", "info", branch],
       cwd: repo,
-      encoding: "utf8",
       env: { ...process.env, NO_COLOR: "1" },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  } catch (error) {
-    throw new UserError(
-      `gt info ${branch} failed: ${errorMessage(error)}`
-    );
-  }
+    },
+    `gt info ${branch}`
+  );
   const rows = raw
     .replace(/\r/g, "")
     .split("\n")
@@ -1103,27 +1141,23 @@ function graphitePullRequest({
   return parseGtPullRequest({ branch, detail: rows[0] ?? "" });
 }
 
-function graphiteFrontier(repo: string): readonly GtFrontierEntry[] {
-  let raw: string;
-  try {
-    raw = execFileSync(
-      "gt",
-      ["--no-interactive", "log", "short", "--stack", "--reverse"],
-      {
-        cwd: repo,
-        encoding: "utf8",
-        env: { ...process.env, NO_COLOR: "1" },
-        stdio: ["ignore", "pipe", "pipe"],
-      }
-    );
-  } catch (error) {
-    throw new UserError(
-      `gt log short --stack --reverse failed: ${errorMessage(error)}`
-    );
-  }
+function graphiteFrontier(
+  repo: string,
+  executeCommand: CommandExecutor
+): readonly GtFrontierEntry[] {
+  const raw = checkedCommand(
+    executeCommand,
+    {
+      file: "gt",
+      args: ["--no-interactive", "log", "short", "--stack", "--reverse"],
+      cwd: repo,
+      env: { ...process.env, NO_COLOR: "1" },
+    },
+    "gt log short --stack --reverse"
+  );
   const result = parseGtBranches(raw).map((branch) => ({
     branches: branch,
-    ...graphitePullRequest({ branch, repo }),
+    ...graphitePullRequest({ branch, repo, executeCommand }),
   }));
   if (new Set(result.map((row) => row.pr)).size !== result.length) {
     throw new UserError("gt info output contains duplicate pull requests");
@@ -1134,23 +1168,22 @@ function graphiteFrontier(repo: string): readonly GtFrontierEntry[] {
 function branchSha({
   branch,
   repo,
+  executeCommand,
 }: {
   branch: string;
   repo: string;
+  executeCommand: CommandExecutor;
 }): string {
-  let raw: string;
-  try {
-    raw = execFileSync("git", ["rev-parse", branch], {
+  const raw = checkedCommand(
+    executeCommand,
+    {
+      file: "git",
+      args: ["rev-parse", branch],
       cwd: repo,
-      encoding: "utf8",
       env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  } catch (error) {
-    throw new UserError(
-      `git rev-parse ${branch} failed: ${errorMessage(error)}`
-    );
-  }
+    },
+    `git rev-parse ${branch}`
+  );
   const sha = raw.trim();
   if (!/^[0-9a-f]{40,64}$/i.test(sha)) {
     throw new UserError(`git rev-parse ${branch} returned an invalid SHA`);
@@ -1158,10 +1191,13 @@ function branchSha({
   return sha;
 }
 
-function resolveFrontier(repo: string): readonly FrontierPr[] {
-  return graphiteFrontier(repo).map((row) => ({
+function resolveFrontier(
+  repo: string,
+  executeCommand: CommandExecutor
+): readonly FrontierPr[] {
+  return graphiteFrontier(repo, executeCommand).map((row) => ({
     ...row,
-    sha: branchSha({ branch: row.branches, repo }),
+    sha: branchSha({ branch: row.branches, repo, executeCommand }),
   }));
 }
 
@@ -1202,6 +1238,7 @@ export function openStore(
   options: OpenStoreOptions = {}
 ): Store {
   const store = resolve(directory);
+  const executeCommand = options.executeCommand ?? executeWithBun;
   let closed = false;
   let releaseLock: (() => Promise<void>) | null = null;
   let lockRequest: Promise<void> | null = null;
@@ -1492,7 +1529,7 @@ export function openStore(
           throw new UserError("--prs must not contain duplicates");
         }
         const old = await readFrontier(store);
-        const prs = resolveFrontier(repo);
+        const prs = resolveFrontier(repo, executeCommand);
         if (pin !== undefined) {
           validateFrontierPin({
             actual: prs.map((row) => row.pr),

@@ -2,9 +2,6 @@ import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "n
 import { join } from "node:path";
 
 const CODEX_TRANSCRIPT = "`~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl`, filtered by the session metadata `cwd` for the active workspace";
-const CLAUDE_TRANSCRIPT = "`~/.claude/projects/<slug>/<uuid>.jsonl`, where `<slug>` is the absolute workspace path with every `/` changed to `-`";
-
-const CLAUDE_TRANSCRIPT_PARAGRAPH = /On Claude Code that is `~\/\.claude\/projects\/<slug>\/<uuid>\.jsonl`, where `<slug>` is[^.]*\.[\s\S]*?On Codex it is `~\/\.codex\/sessions\/<yyyy>\/<mm>\/<dd>\/rollout-\*\.jsonl`, which is not partitioned by workspace, so filter by the session's own cwd\./g;
 
 function stripUnsupportedFrontmatter(text) {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
@@ -24,9 +21,7 @@ function replaceSkillInvocations(text, skillNames) {
 
 function adaptCodexVocabulary(text) {
   return text
-    .replace(CLAUDE_TRANSCRIPT_PARAGRAPH, `On Codex, transcripts live at ${CODEX_TRANSCRIPT}`)
-    .replace(/Transcripts live at `~\/\.claude\/projects\/<slug>\/<uuid>\.jsonl`[^\n]*/g, `Transcripts live at ${CODEX_TRANSCRIPT}. Scope every search to the active workspace.`)
-    .replace(/ls -t ~\/\.claude\/projects\/"\$\(pwd \| tr \/ -\)"\/\*\.jsonl 2>\/dev\/null \| head -10/g, "find ~/.codex/sessions -name 'rollout-*.jsonl' -type f -print")
+    .replace(/--host claude/g, "--host codex")
     .replace(/On Claude Code that is `subagent_type: Explore`\.?/g, "On Codex, use a custom agent with `sandbox_mode = \"read-only\"`.")
     .replace(/using the Task tool/g, "using Codex subagent tools")
     .replace(/Task tool's error message/g, "subagent tool's validation error")
@@ -66,7 +61,6 @@ function adaptCodexVocabulary(text) {
 
 function adaptClaudeVocabulary(text) {
   return text
-    .replace(CLAUDE_TRANSCRIPT_PARAGRAPH, `On Claude Code, transcripts live at ${CLAUDE_TRANSCRIPT}.`)
     .replace(/\(`\.agents\/skills\/verify-<app>\/` on Codex\)/g, "")
     .replace(/ \(`\.agents\/skills\/` on Codex\)/g, "")
     .replace(/, or `\.agents\/skills\/verify-\*\/` on Codex/g, "")
@@ -75,18 +69,6 @@ function adaptClaudeVocabulary(text) {
     .replace(/\. Every line is one chat message\. Scope to this workspace; never sweep the whole store, that reads private chats from unrelated projects/g, ". Scope to this workspace; never sweep unrelated projects")
     .replace(/ \(`\.agents\/skills\/verify-<app>\/` on Codex\)/g, "")
     .replace(/ \(`\.agents\/skills\/` on Codex\)/g, "");
-}
-
-function adaptRuntimeForHost(text, host) {
-  if (host === "claude") {
-    return text
-      .replace(/# Search only host-native transcript stores\. The worktree path match below keeps\n# Codex's global date-partitioned store scoped to this repository\./, "# Search only the Claude Code transcript store for this repository.")
-      .replace(/^\[ -d "\$HOME\/\.codex\/sessions" \].*\n/m, "");
-  }
-  return text
-    .replace(/# Search only host-native transcript stores\. The worktree path match below keeps\n# Codex's global date-partitioned store scoped to this repository\./, "# Search Codex's global transcript store and scope matches to this repository.")
-    .replace(/^slug=.*\n/m, "")
-    .replace(/^\[ -d "\$HOME\/\.claude\/projects\/\$slug" \].*\n/m, "");
 }
 
 export function adaptMarkdownForHost(text, { host, skillNames }) {
@@ -109,18 +91,15 @@ export function writeCodexInvocationPolicy(skillDir, allowImplicitInvocation) {
 export function adaptCopiedSkillTree(skillDir, { host, skillNames, allowImplicitInvocation, nativeCodex = false }) {
   const walk = (dir) => {
     for (const entry of readdirSync(dir)) {
+      if (entry === "node_modules") continue;
       const path = join(dir, entry);
       if (statSync(path).isDirectory()) {
         walk(path);
         continue;
       }
-      if (!path.endsWith(".md") && !path.endsWith("worktree-audit.sh")) continue;
+      if (!path.endsWith(".md")) continue;
       const source = readFileSync(path, "utf8");
-      if (path.endsWith(".md")) {
-        writeFileSync(path, adaptMarkdownForHost(source, { host, skillNames }));
-      } else if (path.endsWith("worktree-audit.sh")) {
-        writeFileSync(path, adaptRuntimeForHost(source, host));
-      }
+      writeFileSync(path, adaptMarkdownForHost(source, { host, skillNames }));
     }
   };
   if (!nativeCodex) walk(skillDir);
