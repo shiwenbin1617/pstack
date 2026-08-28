@@ -106,11 +106,7 @@ function runPackSmoke() {
       };
       if (process.platform !== "win32") return runChecked(shim, args, options);
       assert(args.every((argument) => /^[A-Za-z0-9@._:/-]+$/.test(argument)));
-      return runChecked(
-        process.env.ComSpec || "cmd.exe",
-        ["/d", "/s", "/c", `"${shim}" ${args.join(" ")}`],
-        options,
-      );
+      return runChecked(`"${shim}"`, args, { ...options, shell: true });
     };
     pstack(["add", "--core", "--host", "codex", "--scope", "project", "--memory", "-y"]);
     const installedSkills = join(project, ".agents", "skills");
