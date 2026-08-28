@@ -24,7 +24,7 @@ export function ensureDependenciesInstalled(): void {
     [
       "poteto-mode helper dependencies are not installed or are stale.",
       "Package installation is never performed implicitly.",
-      `After receiving approval to install packages, run: bun --cwd ${JSON.stringify(scriptsDirectory)} install --frozen-lockfile`,
+      `After receiving approval to install packages, run: bun install --cwd ${JSON.stringify(scriptsDirectory)} --frozen-lockfile`,
     ].join("\n")
   );
 }

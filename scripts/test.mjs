@@ -99,11 +99,19 @@ function runPackSmoke() {
     );
 
     const shim = join(project, "node_modules", ".bin", process.platform === "win32" ? "pstack.cmd" : "pstack");
-    const pstack = (args) => runChecked(shim, args, {
-      cwd: project,
-      shell: process.platform === "win32",
-      env: { ...process.env, NO_COLOR: "1" },
-    });
+    const pstack = (args) => {
+      const options = {
+        cwd: project,
+        env: { ...process.env, NO_COLOR: "1" },
+      };
+      if (process.platform !== "win32") return runChecked(shim, args, options);
+      assert(args.every((argument) => /^[A-Za-z0-9@._:/-]+$/.test(argument)));
+      return runChecked(
+        process.env.ComSpec || "cmd.exe",
+        ["/d", "/s", "/c", `"${shim}" ${args.join(" ")}`],
+        options,
+      );
+    };
     pstack(["add", "--core", "--host", "codex", "--scope", "project", "--memory", "-y"]);
     const installedSkills = join(project, ".agents", "skills");
     const installedAudit = join(installedSkills, "poteto-mode", "scripts", "worktree-audit.mjs");
