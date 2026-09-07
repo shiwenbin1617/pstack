@@ -119,22 +119,24 @@ Each host always gets **independent copies**. Claude Code and Codex use differen
 
 ### Writing into CLAUDE.md / AGENTS.md
 
-Installed skills are not much use if the agent never learns they exist. `--memory` writes a block into the always-loaded instruction file naming what is installed, how to invoke it, and where the model config lives.
+`--memory` maintains a `## pstack` section describing skill copy selection, workflow activation, and the model configuration location.
 
 Which file depends on host and scope. Claude Code gets `CLAUDE.md`, Codex gets `AGENTS.md`. `--scope project` writes into the repo root, `--scope user` writes `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`.
 
-The block sits between two markers, and pstack never touches anything outside them.
+The generated block uses two Chinese rules. The Codex version is:
 
 ```markdown
 <!-- pstack:start -->
 ## pstack
 
-Rigorous agent workflows, installed as skills in `~/.claude/skills`.
-Invoke one by name: `/architect`, `/how`, `/interrogate`, ...
+- 使用当前项目指定的技能副本；存在同名技能时，优先使用项目级 `.agents/skills/`，缺少时再使用用户级 `~/.agents/skills/`，不重复加载两份。
+- 仅在用户明确启用 `$poteto-mode` 时进入完整流程，授权限于当前任务。只有技能需要角色模型配置时才读取 `~/.codex/pstack-models.md`。
 <!-- pstack:end -->
 ```
 
-Installing again replaces that block in place rather than appending a second one. `pstack update` refreshes a block that is already there and never introduces one. Removing the last skill removes the block, leaving everything you wrote intact.
+Reinstalling replaces the block in place and consolidates duplicate managed blocks. Two known Chinese manual formats are migrated automatically: the older skill-path and activation paragraph, and the two rules shown above. Other custom `## pstack` sections or malformed markers stop the memory write and remain untouched; use `--no-memory` to install skills while keeping them. Fenced examples are ignored.
+
+Content outside the managed blocks is preserved, except for explicitly recognized legacy sections being migrated. By default, `pstack update` only refreshes existing managed blocks; explicit `--memory` can create or migrate one. `--no-memory` leaves instruction files untouched. Removing the last skill removes the managed blocks.
 
 ### Giving it to your team
 

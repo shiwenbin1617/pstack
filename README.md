@@ -119,22 +119,24 @@ pstack doctor                # 检查两端的安装状态
 
 ### 写进 CLAUDE.md / AGENTS.md
 
-装完技能，agent 未必知道它们存在。`--memory` 会往常驻指令文件里写一段说明：装了什么、怎么调用、模型配置在哪。
+`--memory` 会在常驻指令文件里维护一个 `## pstack` 段落，说明技能副本的选择、工作流启用条件和模型配置位置。
 
 写哪个文件由 host 和 scope 决定。Claude Code 写 `CLAUDE.md`，Codex 写 `AGENTS.md`；`--scope project` 写当前仓库根目录，`--scope user` 写 `~/.claude/CLAUDE.md` 和 `~/.codex/AGENTS.md`。
 
-那段内容夹在两个标记之间，标记之外的东西 pstack 不碰：
+内容统一为两条中文规则，以 Codex 为例：
 
 ```markdown
 <!-- pstack:start -->
 ## pstack
 
-Rigorous agent workflows, installed as skills in `~/.claude/skills`.
-Invoke one by name: `/architect`, `/how`, `/interrogate`, ...
+- 使用当前项目指定的技能副本；存在同名技能时，优先使用项目级 `.agents/skills/`，缺少时再使用用户级 `~/.agents/skills/`，不重复加载两份。
+- 仅在用户明确启用 `$poteto-mode` 时进入完整流程，授权限于当前任务。只有技能需要角色模型配置时才读取 `~/.codex/pstack-models.md`。
 <!-- pstack:end -->
 ```
 
-重复安装会原地替换这一段，不会越写越长。`pstack update` 只刷新已经存在的那一段，不会给没有的文件新加。卸载完最后一个技能时，这一段会被一起删掉，你自己写的内容原样保留。
+重复安装原地替换这一段，并合并重复的管理区块。已知的两种中文手写格式（旧版技能路径与启用说明、上面的两条规则）会自动加上标记并迁移；其他自定义 `## pstack` 段落或损坏的标记会阻止写入，原文保留，可用 `--no-memory` 继续安装技能。代码块中的示例不参与迁移。
+
+除明确迁移的旧格式外，区块外的内容保持不变。`pstack update` 默认只刷新已有管理区块；显式传入 `--memory` 可创建或迁移区块。`--no-memory` 不写入指令文件。卸载完最后一个技能时，管理区块会被一起删掉。
 
 ### 分发给同事
 

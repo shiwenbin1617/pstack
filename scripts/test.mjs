@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   statSync,
   utimesSync,
@@ -25,6 +26,7 @@ import {
   hasMemory,
   installAgents,
   installSkill,
+  memoryBlock,
   removeMemory,
   writeMemory,
 } from "./lib.mjs";
@@ -108,7 +110,15 @@ function runPackSmoke() {
       assert(args.every((argument) => /^[A-Za-z0-9@._:/-]+$/.test(argument)));
       return runChecked(`"${shim}"`, args, { ...options, shell: true });
     };
+    const memoryFile = join(project, "AGENTS.md");
+    const manualMemory = memoryBlock({ host: "codex" }).split("\n").slice(1, -1).join("\n");
+    writeFileSync(memoryFile, `# House rules\n\n${manualMemory}\n`);
     pstack(["add", "--core", "--host", "codex", "--scope", "project", "--memory", "-y"]);
+    const installedMemory = readFileSync(memoryFile, "utf8");
+    assert.equal(installedMemory.match(/^## pstack$/gm).length, 1);
+    assert.equal(installedMemory.match(/<!-- pstack:start -->/g).length, 1);
+    pstack(["add", "--core", "--host", "codex", "--scope", "project", "--no-memory", "-y"]);
+    assert.equal(readFileSync(memoryFile, "utf8"), installedMemory);
     const installedSkills = join(project, ".agents", "skills");
     const installedAudit = join(installedSkills, "poteto-mode", "scripts", "worktree-audit.mjs");
     const installedLog = join(installedSkills, "show-me-your-work", "scripts", "log.mjs");
@@ -128,6 +138,7 @@ function runPackSmoke() {
     pstack(["list", "--host", "codex", "--scope", "project"]);
     pstack(["doctor", "--host", "codex", "--scope", "project"]);
     pstack(["update", "--host", "codex", "--scope", "project", "-y"]);
+    assert.equal(readFileSync(memoryFile, "utf8"), installedMemory);
     const installed = readdirSync(installedSkills);
     pstack(["remove", ...installed, "--host", "codex", "--scope", "project", "-y"]);
     assert.equal(readdirSync(join(project, ".agents", "skills")).length, 0);
@@ -327,6 +338,65 @@ try {
   removeMemory({ host: "claude", scope: "project" });
   assert.equal(hasMemory({ host: "claude", scope: "project" }), false);
   assert.equal(readFileSync(claudeMemory, "utf8"), "# House rules\n\nRun the linter.\n");
+
+  for (const host of ["codex", "claude"]) {
+    const file = host === "codex" ? codexMemory : claudeMemory;
+    const invocation = host === "codex" ? "$poteto-mode" : "/poteto-mode";
+    const modelConfig = host === "codex" ? "~/.codex/pstack-models.md" : "~/.claude/pstack-models.md";
+    const options = { host, scope: "project", skills: selected };
+    const block = memoryBlock(options);
+    assert.equal(block.split("\n").filter((line) => line.startsWith("- ")).length, 2);
+    const before = "# House rules\n\nKeep these rules.\n\n";
+    const after = "\n\n## Other rules\n\nKeep these too.\n";
+    const legacy = `## pstack\n\npstack 技能位于 \`/old/skills\`。用户明确启用 \`${invocation}\` 时才进入完整流程，授权仅限当前任务。\n技能需要角色模型配置时读取 \`${modelConfig}\`。`;
+    const currentManual = block.split("\n").slice(1, -1).join("\n");
+
+    for (const manual of [legacy, currentManual, legacy.replace(/\n/g, "\r\n")]) {
+      const input = before + manual + after;
+      writeFileSync(file, input);
+      assert.equal(realpathSync(writeMemory({ ...options, dryRun: true })), realpathSync(file));
+      assert.equal(readFileSync(file, "utf8"), input, "dry run must not migrate the file");
+      writeMemory(options);
+      assert.equal(readFileSync(file, "utf8"), before + block + after);
+      assert.equal(writeMemory(options), null, "migrated manual sections must remain idempotent");
+    }
+
+    const oldBlock = "<!-- pstack:start -->\n## pstack\n\nOld generated instructions.\n<!-- pstack:end -->";
+    for (const first of [legacy, oldBlock]) {
+      writeFileSync(file, before + first + "\n\n" + oldBlock + after);
+      writeMemory(options);
+      const merged = readFileSync(file, "utf8");
+      assert.equal(merged.match(/<!-- pstack:start -->/g).length, 1);
+      assert.equal(merged.match(/^## pstack$/gm).length, 1);
+      assert(merged.startsWith(before + block));
+      assert(merged.endsWith(after));
+      assert.equal(writeMemory(options), null);
+    }
+
+    const example = `# Examples\n\n\`\`\`markdown\n${oldBlock}\n\`\`\`\n`;
+    writeFileSync(file, example);
+    assert.equal(hasMemory(options), false, "fenced examples are not managed instructions");
+    writeMemory(options);
+    assert.equal(readFileSync(file, "utf8"), example + "\n" + block + "\n");
+    removeMemory(options);
+    assert.equal(readFileSync(file, "utf8"), example);
+
+    for (const unsafe of [
+      before + "## pstack\n\nMy custom workflow.\n" + after,
+      before + "<!-- pstack:start -->\nUnclosed block.\n",
+      before + "<!-- pstack:end -->\n",
+      before + "<!-- pstack:start -->\n" + oldBlock,
+    ]) {
+      writeFileSync(file, unsafe);
+      assert.throws(() => writeMemory(options), /--no-memory/);
+      assert.equal(readFileSync(file, "utf8"), unsafe, "unknown or malformed instructions must not be overwritten");
+    }
+
+    writeFileSync(file, before + oldBlock + "\n\n" + oldBlock + after);
+    removeMemory(options);
+    assert.equal(hasMemory(options), false, "removal handles all managed duplicates");
+    assert(readFileSync(file, "utf8").includes("Keep these too."));
+  }
 } finally {
   process.chdir(originalCwd);
   rmSync(testRoot, { recursive: true, force: true });

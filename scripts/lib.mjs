@@ -123,22 +123,68 @@ const MEMORY_START = "<!-- pstack:start -->";
 const MEMORY_END = "<!-- pstack:end -->";
 
 /** The managed block pstack owns inside CLAUDE.md / AGENTS.md. Everything else in the file is the user's. */
-export function memoryBlock({ host, scope, skills = [] }) {
+export function memoryBlock({ host }) {
   const h = HOSTS[host];
-  const entries = skills.filter((s) => CORE_SKILLS.includes(s.dirName)).map((s) => h.invoke(s.name));
-  const shown = entries.length ? entries : skills.map((s) => h.invoke(s.name));
+  const projectSkills = host === "codex" ? ".agents/skills/" : ".claude/skills/";
   return [
     MEMORY_START,
     "## pstack",
     "",
-    `Rigorous agent workflows, installed as skills in \`${h.skillsDir(scope)}\`.`,
-    `Invoke one by name: ${shown.slice(0, 6).map((i) => `\`${i}\``).join(", ")}.`,
-    "",
-    `Use \`${h.invoke("poteto-mode")}\` only when the user explicitly requests it for the current task.`,
-    "",
-    `When a pstack skill asks for a per-role model, read \`${h.modelConfig}\`.`,
+    `- 使用当前项目指定的技能副本；存在同名技能时，优先使用项目级 \`${projectSkills}\`，缺少时再使用用户级 \`~/${projectSkills}\`，不重复加载两份。`,
+    `- 仅在用户明确启用 \`${h.invoke("poteto-mode")}\` 时进入完整流程，授权限于当前任务。只有技能需要角色模型配置时才读取 \`${h.modelConfig}\`。`,
     MEMORY_END,
   ].join("\n");
+}
+
+// Recognize top-level blocks and sections without treating fenced examples as instructions.
+function memoryLayout(text) {
+  const blocks = [];
+  const sections = [];
+  let blockStart = null;
+  let section = null;
+  let fence = null;
+  for (const match of text.matchAll(/[^\n]*(?:\n|$)/g)) {
+    if (!match[0]) continue;
+    const line = match[0].trimEnd();
+    const fenceMatch = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence) {
+      if (fenceMatch && fenceMatch[1][0] === fence[0] && fenceMatch[1].length >= fence.length && !fenceMatch[2].trim()) fence = null;
+      continue;
+    }
+    if (fenceMatch) { fence = fenceMatch[1]; continue; }
+    if (line === MEMORY_START) {
+      if (blockStart !== null) throw new Error("Nested pstack memory markers; repair the markers or use --no-memory.");
+      if (section) section.end = match.index;
+      section = null;
+      blockStart = match.index;
+    } else if (line === MEMORY_END) {
+      if (blockStart === null) throw new Error("Unmatched pstack memory end marker; repair the markers or use --no-memory.");
+      blocks.push({ start: blockStart, end: match.index + line.length });
+      blockStart = null;
+    }
+    if (/^ {0,3}#{1,2}\s/.test(line)) {
+      if (section) section.end = match.index;
+      section = /^ {0,3}##\s+pstack(?:\s+#+)?\s*$/i.test(line)
+        ? { start: match.index, bodyStart: match.index + match[0].length, end: text.length }
+        : null;
+      if (section) sections.push(section);
+    }
+  }
+  if (blockStart !== null) throw new Error("Unmatched pstack memory start marker; repair the markers or use --no-memory.");
+  return { blocks, sections: sections.filter((s) => !blocks.some((b) => s.start >= b.start && s.start < b.end)) };
+}
+
+function isLegacyMemory(body, host) {
+  const normalized = body.trim().replace(/\r\n/g, "\n");
+  const current = memoryBlock({ host }).split("\n").slice(3, -1).join("\n");
+  if (normalized === current) return true;
+  const h = HOSTS[host];
+  const lines = normalized.split("\n").filter((line) => line.trim());
+  const prefix = /^pstack 技能位于 `[^`\n]+`。/.exec(lines[0] || "")?.[0];
+  return lines.length === 2
+    && prefix !== undefined
+    && lines[0] === `${prefix}用户明确启用 \`${h.invoke("poteto-mode")}\` 时才进入完整流程，授权仅限当前任务。`
+    && lines[1] === `技能需要角色模型配置时读取 \`${h.modelConfig}\`。`;
 }
 
 /**
@@ -149,12 +195,24 @@ export function writeMemory({ host, scope, skills = [], dryRun = false }) {
   const file = HOSTS[host].memoryFile(scope);
   const block = memoryBlock({ host, scope, skills });
   const existing = existsSync(file) ? readFileSync(file, "utf8") : "";
-  const start = existing.indexOf(MEMORY_START);
-  const end = existing.indexOf(MEMORY_END);
+  const { blocks, sections } = memoryLayout(existing);
+  const ranges = [...blocks];
+  for (const section of sections) {
+    const body = existing.slice(section.bodyStart, section.end);
+    if (!isLegacyMemory(body, host)) {
+      throw new Error(`Custom ## pstack section in ${file}; keep it with --no-memory or merge it manually before using --memory.`);
+    }
+    ranges.push({ start: section.start, end: section.start + existing.slice(section.start, section.end).trimEnd().length });
+  }
+  ranges.sort((a, b) => a.start - b.start);
 
   let next;
-  if (start !== -1 && end > start) {
-    next = existing.slice(0, start) + block + existing.slice(end + MEMORY_END.length);
+  if (ranges.length) {
+    next = existing;
+    for (let i = ranges.length - 1; i >= 0; i--) {
+      const { start, end } = ranges[i];
+      next = next.slice(0, start) + (i === 0 ? block : "") + next.slice(end);
+    }
   } else {
     next = existing.trimEnd();
     next = next ? `${next}\n\n${block}\n` : `${block}\n`;
@@ -169,7 +227,7 @@ export function writeMemory({ host, scope, skills = [], dryRun = false }) {
 /** Whether the host's memory file already carries a pstack block. */
 export function hasMemory({ host, scope }) {
   const file = HOSTS[host].memoryFile(scope);
-  return existsSync(file) && readFileSync(file, "utf8").includes(MEMORY_START);
+  return existsSync(file) && memoryLayout(readFileSync(file, "utf8")).blocks.length > 0;
 }
 
 /** Drop the managed block, leaving the rest of the file untouched. */
@@ -177,10 +235,11 @@ export function removeMemory({ host, scope, dryRun = false }) {
   const file = HOSTS[host].memoryFile(scope);
   if (!existsSync(file)) return null;
   const existing = readFileSync(file, "utf8");
-  const start = existing.indexOf(MEMORY_START);
-  const end = existing.indexOf(MEMORY_END);
-  if (start === -1 || end < start) return null;
-  const next = (existing.slice(0, start).trimEnd() + "\n" + existing.slice(end + MEMORY_END.length).trimStart()).trim();
+  const { blocks } = memoryLayout(existing);
+  if (!blocks.length) return null;
+  let next = existing;
+  for (const { start, end } of blocks.reverse()) next = next.slice(0, start) + next.slice(end);
+  next = next.trim();
   if (dryRun) return file;
   writeFileSync(file, next ? next + "\n" : "");
   return file;
