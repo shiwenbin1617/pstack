@@ -26,16 +26,18 @@ npx @shiwenbin1617/pstack add
 
 ## Why pstack
 
-The default failure mode of AI-written code is that it looks reasonable, does not run, or runs but nobody checked.
+pstack supplies workflows when a task needs them. Routine implementation stays with the model's judgment, bounded by project contracts, permissions, and proportionate verification.
+
+The instruction cleanup follows [OpenAI GPT-6 Astra Model Guidance](https://developers.openai.com/api/docs/guides/latest-model) and [Eric Provencher's skills and prompts guidance](https://x.com/pvncher/status/2095991462416490862). Safety gates remain; efficiency gains require measurement on real tasks.
 
 | What you get | What it does |
 |---|---|
-| **Understand before you touch** | `/how` and `/why` fan out parallel subagents across the subsystem and its design history. You do not move on until you can state the full call path |
-| **Interfaces before implementation** | `/architect` fixes types, signatures, and module boundaries before any code crosses a function boundary. Skipping it requires a written reason and cannot hide inside the implementation |
+| **Understand what matters** | `/how` explains behavior and ownership; `/why` follows evidence about rationale. Narrow questions can be answered directly |
+| **Design judgment** | `/architect` resolves unsettled interface and architecture choices, comparing alternatives when useful |
 | **Adversarial across models** | `/arena` runs N designs in parallel and grafts the best parts together. `/interrogate` sends different models at your diff in turn |
-| **Evidence, not assertion** | The prove-it-works principle. Green CI is not evidence. An agent saying it passed is not evidence. Only a result observed on the real surface by someone who did not write the code counts |
-| **23 playbooks** | Bug fixes, features, refactors, performance, shipping, and long unattended runs each have fixed steps, exit conditions, and acceptance criteria |
-| **21 engineering principles** | From "pick the core data structure first" to "migrate the callers, then delete the old API". Skills cite them where they apply |
+| **Proportionate evidence** | Match checks to changed behavior, distinguish mocks from real integration, and stop repeating checks after they pass |
+| **23 playbooks** | Select by task; fixed gates protect actual contracts and safety boundaries while routine steps adapt |
+| **21 engineering principles** | Optional deeper guidance for concrete decisions, without mandatory loading or citations |
 | **No AI smell** | `/no-comments` strips narrating comments. `/unslop` removes AI tells. `/technical-writing` handles PRs and commit messages |
 | **One install, two hosts** | One body of methodology generates two native trees. Claude Code and Codex keep separate files, agents, and config |
 
@@ -235,16 +237,13 @@ On Codex, replace `/` with `$`, as in `$poteto-mode`.
 
 ### What the `feature` playbook actually does
 
-1. `/how` over the subsystem you are about to change.
-2. `/architect` for parallel design exploration. **Skipping requires a written reason.** A design decision may not be folded silently into the implementation.
-3. Write the throughput checkpoint. What must run first, what can run in parallel, and how shared state gets split.
-4. Only now write code. A delegate gets file paths, the **data shape decided up front**, and acceptance criteria. You review the diff yourself.
-5. Verify on the real surface. "Inconclusive" is not a pass, and neither is the wrong surface.
-6. Rebase into small, ordered commits.
-7. If the design is contested, run `/interrogate` before shipping.
-8. Run `opening-a-pr`.
+1. Establish affected behavior, ownership, and acceptance criteria.
+2. Resolve important design choices, using established patterns when the shape is clear.
+3. Implement directly or delegate worthwhile independent work and inspect its artifacts.
+4. Run appropriate project checks and exercise UI or integration paths when needed.
+5. Fix failures and deliver a reviewable result. Commit or open a PR only with authorization.
 
-The phrase "data shape decided up front" in step 4 carries the weight. A state machine instead of scattered booleans. A table or registry instead of branching. A typed model instead of the same shape assumption repeated across files. You pick it **before the first line of logic**. This is where new features bury their landmines.
+Ordinary changes need no fixed skill sequence, throughput checkpoint, or separate decision log.
 
 ---
 
@@ -292,7 +291,7 @@ Run `pstack find` for the full list with descriptions.
 
 Those are **always-resident** project rules. Every session loads all of them into context, so they have to stay short and general. "Use TypeScript." "Tests go in tests/."
 
-pstack skills load **on demand**. Only the description line of each of the 44 skills stays resident. The agent reads the body when it judges the skill relevant. That budget is what lets each skill go deep. The `feature` playbook has 8 steps with named exit conditions. The `refactoring` one demands a behavior fixture before any structural change. You cannot fit that density into an always-resident file.
+pstack skills load on demand. Descriptions support selection, entrypoints hold necessary constraints, and references hold substantial conditional workflows. Feature work does not require delegation; refactoring reuses existing behavior tests where sufficient.
 
 They do not conflict. CLAUDE.md holds facts about your project. pstack holds general engineering method.
 

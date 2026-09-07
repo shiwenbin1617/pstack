@@ -10,7 +10,7 @@ Editing code you don't understand is how subtle regressions ship. pstack gives y
 /how do we dedupe notifications? is there an n+1 when we look up subscribers?
 ```
 
-Ask the question you actually have. [`/how`](../../skills/how/SKILL.md) reads the code and answers at the level of a senior engineer onboarding you onto the subsystem, with the runtime flow, the key types, and the non-obvious parts. For a big subsystem it fans out two to four read-only explorers first. For a narrow question it just reads and explains.
+Ask the question you actually have. [`/how`](../../skills/how/SKILL.md) traces the relevant flow and ownership. It answers narrow questions directly and delegates independent slices of a broad subsystem when useful.
 
 `/how` can also push back on the design. Ask for Critique mode when you suspect the structure itself:
 
@@ -18,7 +18,7 @@ Ask the question you actually have. [`/how`](../../skills/how/SKILL.md) reads th
 /how explain the sync service, then critique its ownership boundaries
 ```
 
-The explanation comes first, so the critique stays grounded in how the thing really works.
+The critique is grounded in the implementation and leads with actionable findings.
 
 ## Dig up history with `/why`
 
@@ -26,7 +26,7 @@ The explanation comes first, so the critique stays grounded in how the thing rea
 /why was the retry limit set to five? does the reason still hold?
 ```
 
-[`/why`](../../skills/why/SKILL.md) works like a detective on a cold case. It starts from source control, then queries whatever evidence categories your MCPs expose, such as the issue tracker, long-form docs, team chat, observability, error tracking, and analytics, all in parallel. The report cites everything, separates direct evidence from inference, and says "appears to" when the record is thin. A null result gets reported too, because "nobody wrote down why" is itself an answer.
+[`/why`](../../skills/why/SKILL.md) starts with the strongest available lead and expands when a material gap or contradiction warrants it. The answer cites recorded intent and separates inference from fact. An empty search does not prove that nobody recorded the reason.
 
 The two compose naturally. `do why first then how` is a perfectly good prompt when you suspect the history explains the mess.
 
@@ -56,6 +56,6 @@ When another agent (or you, last week) left a branch mid-flight:
 
 The [Session pickup playbook](../../skills/poteto-mode/playbooks/session-pickup.md) treats the prior trail as authoritative. It reconstructs the branch state and decisions, names the resume point, and verifies inherited claims against the original goal instead of re-deriving everything from scratch.
 
-**Pitfall:** don't skip this page's skills because "the agent will read the code anyway." An agent that starts editing without a traced model tends to fix the symptom at the first plausible spot. `/how` first is cheaper than the second bug.
+Use these skills when an explanation or historical investigation is needed. Ordinary edits can rely on targeted code reading and context already gathered.
 
 Next: [Design the change](./04-design.md).

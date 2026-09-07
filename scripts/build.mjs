@@ -20,8 +20,8 @@ const CODEX_AGENTS_CONTENT = `# pstack
 
 These skills are installed under \`.agents/skills/\`. Invoke one with \`$<name>\`, for example \`$poteto-mode\`.
 
-Invoke \`$poteto-mode\` for a non-trivial task that needs the pstack workflow. Invoke it again for a later
-task because mode activation is explicit and scoped to one task. Run \`$setup-pstack\` only to override models.
+Use \`$poteto-mode\` only when the user explicitly requests it for the current task.
+Run \`$setup-pstack\` only when the user requests model preferences.
 
 Custom subagents are standalone TOML files under \`.codex/agents/\` or \`~/.codex/agents/\`.
 `;

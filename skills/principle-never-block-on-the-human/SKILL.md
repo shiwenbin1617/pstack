@@ -1,23 +1,13 @@
 ---
 name: principle-never-block-on-the-human
-description: "Apply when tempted to ask 'should I do X?' on reversible work. Proceed, present the result, let the human course-correct after the fact; reserve confirmation for irreversible actions."
+description: Continue authorized work autonomously and ask only for decisions or permissions that materially affect the outcome.
 disable-model-invocation: true
 ---
 
-# Never Block on the Human
+# Never block on the human
 
-The human supervises asynchronously. Agents must stay unblocked: make reasonable decisions, proceed, and let the human course-correct after the fact. Code is cheap. Waiting is expensive.
+Infer routine implementation choices from the request and existing context. Complete authorized work through verification and fixes. Do not ask again for permission already granted within the same scope.
 
-**Why:** Every permission pause stalls the pipeline and makes the human the bottleneck. Since code changes are reversible and reviewable, a wrong decision usually costs less than blocking.
+When a missing decision affects the goal, scope, or irreversible result, explain it briefly and continue independent work while awaiting the answer.
 
-**Pattern:**
-- **Proceed, then present.** Do the work, show the result. Don't ask "should I do X?" Do X, explain why.
-- **Reserve questions for genuine ambiguity.** Ask only when you truly cannot infer intent from context.
-- **Make the system self-healing.** When you notice a problem, log it and fix it in the next round.
-- **Supervision is async.** The human reviews plans, diffs, and changes on their own schedule. Design workflows for review-after-the-fact.
-- **Code is cheap, attention is scarce.** A wrong implementation costs minutes to fix. A blocked agent costs the human's attention to unblock.
-
-**Boundaries:**
-- **Irreversible actions** (force-push, delete production data, send external messages) still require confirmation.
-- **Reversible actions** (write code, edit notes, split tasks) should proceed without blocking.
-- **Product direction** comes from the human; *execution* should not block.
+Reversibility alone does not authorize an external action. Preserve the user's limits on messages, commits, pushes, deployments, data operations, and configuration changes. Prepare the concrete local result before requesting missing authorization.

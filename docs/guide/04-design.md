@@ -10,9 +10,9 @@ One attempt at a hard design locks in the first shape the model thought of. `/ar
 /architect design the import pipeline before writing any code. i care most about how callers use it.
 ```
 
-[`/architect`](../../skills/architect/SKILL.md) grounds itself first, running `/how` over the code the design touches and `/why` when it moves ownership or layers. Then it runs `/arena` to produce competing design sketches, with the caller's usage written first in each, followed by types, signatures, and a module map.
+[`/architect`](../../skills/architect/SKILL.md) uses the affected code and known contracts to sketch callers, types, signatures, and ownership. It compares alternatives when important choices remain unsettled; `/how`, `/why`, and `/arena` are optional aids.
 
-By default it proceeds straight from the synthesized design into implementation. If you want to see the design first, say so:
+A design-only request ends with the design. An implementation request continues into code unless you ask for a checkpoint:
 
 ```text
 /architect with checkpoint. stop and show me before implementing.
@@ -71,11 +71,11 @@ Read the dismissals too. The lead is a pragmatic senior engineer, not an oracle,
 You might be wondering whether every change needs this. No. Most changes need none of it. A rough ladder:
 
 - A small, finished change you're unsure about needs `/interrogate` alone.
-- A change that crosses function boundaries or moves ownership earns `/architect`, which brings `/arena` with it.
+- An unresolved choice about interfaces or ownership may benefit from `/architect`.
 - A standalone decision where independent attempts would help, like naming, formats, or an algorithm, is `/arena` directly.
 - A coverage matrix, set of parallel checks, or race with declared arms is `/swarm`.
 - A contested design that's expensive to reverse gets `/architect`, then `/interrogate` before shipping.
 
-`/poteto-mode` already applies this ladder. Boundary-crossing work triggers `/architect` on its own, so you reach for these directly mainly when you want more or less scrutiny than the default.
+`/poteto-mode` chooses these tools according to the decision at hand. Crossing a function boundary alone does not trigger a design panel.
 
 Next: [Build and clean the change](./05-build-and-clean.md).

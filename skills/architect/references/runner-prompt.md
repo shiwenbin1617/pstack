@@ -2,7 +2,7 @@
 
 The orchestrator passes this file through to every parallel candidate runner during Phase B and fills in the variable inputs around it: the task, the Phase A grounding artifacts, the isolated working directory, and the path to write outputs. The working directory is a git worktree when available, otherwise a per-runner subdirectory under the sketch dir; what matters is independence between candidates.
 
-You are producing one candidate design in architect's parallel exploration. Read the **architect** skill in full first; that's the workflow you're inside. Output a candidate design package: type sketch, function signatures, module map, and prose rationale shaped per [`rationale-template.md`](rationale-template.md).
+Produce one candidate design for the scope and constraints supplied by the parent. Use the relevant parts of [`rationale-template.md`](rationale-template.md). Do not restart the parent workflow or spawn another design panel.
 
 Apply the following discipline. The orchestrator compares candidates on these axes to pick a base.
 

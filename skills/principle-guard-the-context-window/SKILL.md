@@ -1,17 +1,15 @@
 ---
 name: principle-guard-the-context-window
-description: "Apply when context is filling up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents; keep summaries in the main thread, not raw payloads."
+description: Reduce unnecessary context from repeated reads, large outputs, and duplicated delegation.
 disable-model-invocation: true
 ---
 
-# Guard the Context Window
+# Guard the context window
 
-The context window is finite and non-renewable within a session. Every token that enters should earn its place.
+Read what the task needs. Use targeted searches and bounded output, retaining file pointers for detail that is not needed yet. Reuse findings across phases instead of rereading unchanged material.
 
-**Why:** Context overflow degrades reasoning quality, creates compression artifacts, and halts progress. Unlike compute or time, context spent inside a session cannot be reclaimed.
+For a skill with multiple modes, load the relevant reference only. Keep common constraints in its entrypoint without duplicating the reference.
 
-**Pattern:**
-- **Isolate large payloads.** Route verbose outputs, screenshots, and large documents to subagents. The main context gets summaries, not raw data.
-- **Don't read what you won't use.** Read selectively based on relevance. If a file isn't needed for the current task, skip it.
-- **Keep frequently used content inline.** Templates and references used on every invocation belong in the skill file, not in separate files that cost a read each time.
-- **Size phases and cap scope.** Limit files per phase, set turn budgets, account for mechanism costs.
+Delegate a bounded investigation when it can independently resolve a useful question. Moving a large payload to another agent is not automatically cheaper; include coordination and duplicate reading in the decision.
+
+After compaction, continue from the preserved state and inspect only what is missing or has changed.

@@ -1,6 +1,6 @@
 # Source playbooks
 
-The why skill spawns one investigator per available evidence category, each reading a single source-specific playbook below. The playbooks are concrete examples for common MCPs; adapt them for a different MCP in the same category.
+Read only the playbook for a source needed by the current investigation. These are examples for common MCPs, not a required coverage checklist; adapt them for the available tool.
 
 | Category | Playbook | Example MCP it documents |
 |---|---|---|
@@ -14,4 +14,4 @@ The why skill spawns one investigator per available evidence category, each read
 
 Cross-cutting:
 
-- [`incident-postmortem.md`](./sources/incident-postmortem.md). Add this if the target code looks defensive (null checks, retry, timeout, rate limit, feature flag, egress guard, OOM handler).
+- [`incident-postmortem.md`](./sources/incident-postmortem.md). Use when investigating a suspected incident or outage.
