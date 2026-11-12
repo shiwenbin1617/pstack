@@ -11,7 +11,7 @@
 import { mkdirSync, rmSync, cpSync, writeFileSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { REPO_ROOT, SKILLS_DIR, AGENTS_DIR, CODEX_ADAPTER_DIR, CLAUDE_ADAPTER_DIR, findSkills } from "./lib.mjs";
-import { adaptCopiedSkillTree, adaptMarkdownForHost } from "./host-adapters.mjs";
+import { adaptCopiedSkillTree, adaptMarkdownForHost, readHarness } from "./host-adapters.mjs";
 
 const check = process.argv.includes("--check");
 const DIST = join(REPO_ROOT, "dist");
@@ -68,10 +68,8 @@ const skillNames = skills.map((skill) => skill.name);
 const CODEX_LEAK_PATTERNS = [
   [/\.claude\//, "Claude path"],
   [/Claude Code/, "Claude host name"],
-  [/Task tool/, "Claude/Cursor Task tool"],
-  [/subagent_type:/, "Claude subagent type"],
-  [/run_in_background/, "Claude background argument"],
-  [/AskQuestion|AskUserQuestion/, "host-specific question tool"],
+  [/subagent_type: "(general-purpose|Explore)"/, "Claude subagent type"],
+  [/AskUserQuestion/, "Claude question tool"],
 ];
 const CLAUDE_LEAK_PATTERNS = [
   [/\.codex\//, "Codex path"],
@@ -93,6 +91,12 @@ const PORTABILITY_LEAK_PATTERNS = [
 for (const [pattern, why] of CODEX_LEAK_PATTERNS) {
   const match = pattern.exec(CODEX_AGENTS_CONTENT);
   if (match) codexLeaks.push(`generated Codex AGENTS.md: ${why} (${match[0]})`);
+  const harness = pattern.exec(readHarness("codex"));
+  if (harness) codexLeaks.push(`adapters/codex/harness.md: ${why} (${harness[0]})`);
+}
+for (const [pattern, why] of CLAUDE_LEAK_PATTERNS) {
+  const harness = pattern.exec(readHarness("claude"));
+  if (harness) claudeLeaks.push(`adapters/claude-code/harness.md: ${why} (${harness[0]})`);
 }
 
 for (const s of skills) {

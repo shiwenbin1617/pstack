@@ -12,7 +12,7 @@
 
 [安装](#安装) · [使用](#使用) · [工作原理](#工作原理) · [技能清单](#技能清单) · [常见问题](#常见问题)
 
-同时支持 **Claude Code** 和 **Codex** · 44 个技能 · 23 个 playbook · 21 条工程原则
+同时支持 **Claude Code** 和 **Codex** · 57 个技能 · 23 个 playbook · 24 条工程原则
 
 中文 · [English](./README.en.md)
 
@@ -26,18 +26,18 @@ npx @shiwenbin1617/pstack add
 
 ## 为什么用 pstack
 
-pstack 提供按需使用的工程工作流。常规实现交给模型判断，保留项目约束、权限边界和与风险相称的验证。
+pstack 提供按需使用的工程工作流：先吃透再动手，设计、验证、交付各有出口条件。
 
-本次指令精简依据 [OpenAI GPT-6 Astra Model Guidance](https://developers.openai.com/api/docs/guides/latest-model) 和 [Eric Provencher 的技能与提示词实践](https://x.com/pvncher/status/2095991462416490862)。减少固定流程不等于取消安全门禁；实际效率改善仍需结合真实任务测量。
+技能正文跟随上游 [cursor/plugins/pstack](https://github.com/cursor/plugins/tree/main/pstack) 0.15.36（2026-11-11）。上游用 Cursor 的工具名写技能，安装时每个用到这些名字的技能会附带一份宿主映射表 `harness.md`，告诉 Claude Code 或 Codex 对应的工具、路径和模型写法。
 
 | 能力 | 作用 |
 |---|---|
 | **按需理解** | `/how` 解释行为和职责，`/why` 根据线索追查设计历史；简单问题直接回答 |
 | **设计判断** | `/architect` 处理尚未解决的接口与架构选择，必要时比较多个方案 |
 | **多模型对抗** | `/arena` 并行出 N 个方案再择优嫁接，`/interrogate` 让不同模型轮流攻击你的 diff |
-| **证据与风险相称** | 按实际行为选择测试或运行时验证，区分编译、Mock 与真实集成结果，通过后不重复检查 |
-| **23 个 playbook** | 按任务选择流程；固定门禁用于实际契约和安全边界，普通步骤可按需调整 |
-| **21 条工程原则** | 需要深入判断时查阅，不要求每次加载或逐条汇报 |
+| **验证要有证据** | 在真实界面上拿运行时证据，编译通过和 Mock 都不算验证 |
+| **23 个 playbook** | 修 bug、加功能、重构、调性能、开 PR……每类任务有一套带出口条件的流程 |
+| **24 条工程原则** | 每个决定都要能追溯到某条原则 |
 | **不留 AI 味** | `/no-comments` 清废话注释，`/unslop` 去 AI 腔，`/technical-writing` 规范 PR 和 commit |
 | **一次安装，两端可用** | 从公共方法论生成两个原生产物；Claude Code 与 Codex 的文件、代理和配置互不影响 |
 
@@ -64,7 +64,7 @@ npx @shiwenbin1617/pstack add
 
 然后勾选要装哪些技能：`↑↓` 移动，`空格` 勾选，`a` 全选，`回车` 确认。默认预选 10 个核心入口。
 
-**这套东西是耦合的，装全了才有效果。** `poteto-mode` 会去读全部 33 个 principle 技能，所以不管你勾几个，安装时都会按引用关系补齐，勾满核心入口最后落在 44 个里的 39 个。省事就直接 `pstack add --all`。
+**这套东西是耦合的，装全了才有效果。** `poteto-mode` 会引用全部 24 个 principle 技能，所以不管你勾几个，安装时都会按引用关系补齐，勾满核心入口最后落在 57 个里的 40 个。省事就直接 `pstack add --all`。
 
 最后问一次要不要把 pstack 那段写进 CLAUDE.md / AGENTS.md，见下面的「写进 CLAUDE.md / AGENTS.md」。
 
@@ -80,7 +80,7 @@ npm i -g @shiwenbin1617/pstack
 
 ```bash
 pstack add --core            # 核心入口及其自动展开的运行依赖，共 39 个
-pstack add --all             # 全装 44 个
+pstack add --all             # 全装 57 个
 pstack add how why           # 按名字装指定技能
 pstack add --core --host codex --memory   # 只装 Codex，并写入 AGENTS.md
 ```
@@ -152,7 +152,7 @@ npx @shiwenbin1617/pstack add --core
 
 ## 使用
 
-### 1. 配置模型档位（可选，但建议跑一次）
+### 1. 配置模型（可选，但建议跑一次）
 
 ```text
 # Claude Code
@@ -162,15 +162,16 @@ npx @shiwenbin1617/pstack add --core
 $setup-pstack
 ```
 
-它探测你这个会话实际能用哪些模型，绑定三个档位：
+它探测你这个会话实际能用哪些模型，先问一个推理预算（unlimited / large / medium / small），再按角色绑定模型：
 
-| 档位 | 用在哪 |
+| 角色 | 用在哪 |
 |---|---|
-| 快速代码模型 | 机械的、规格明确的改动 |
-| 精确执行模型 | 需要一字不差按步骤执行的活 |
-| 判断模型 | 文案、设计决策、对抗式评审 |
+| `feature, refactoring`、`bug-fix`、`perf-issue`、`hillclimb` | 委派出去写代码的子代理 |
+| `judgment and prose`、`hardest tasks` | 文案、设计判断和最难的改动 |
+| `how`、`why`、`reflect` 各角色 | 调研与综合 |
+| `arena`、`architect`、`interrogate` 面板 | 多模型对比与对抗评审，列表长度就是并行数 |
 
-技能正文只说"用你的判断模型"，具体是谁由这里决定。Claude Code 写入 `~/.claude/pstack-models.md`，Codex 写入 `~/.codex/pstack-models.md`。两边配置互不读取。跳过也能跑，每个技能有自己的档位默认值。
+技能正文写的是上游默认模型，具体用谁由这里决定。Claude Code 写入 `~/.claude/pstack-models.md`，Codex 写入 `~/.codex/pstack-models.md`。两边配置互不读取。跳过也能跑，每个技能回落到自己的默认值，由宿主映射表换算。
 
 ### 2. 日常只用一个入口
 
@@ -186,7 +187,7 @@ $poteto-mode 给设置页加一个导出功能，支持 CSV 和 JSON，并拿出
 
 读你的请求 → 匹配 playbook → 把步骤原样抄进 todo list → 按步骤调用其他技能。
 
-Claude Code 的 `/poteto-mode` 保留原生粘性模式。Codex 不伪造该能力；每个新的独立任务显式调用 `$poteto-mode`，长任务使用当前 Codex 会话提供的 goal、wait 或 recurring-monitoring 能力。
+每个新的独立任务都要显式调用 `/poteto-mode`（Codex 上是 `$poteto-mode`）。大部分技能设置了只能手动触发，模型不会自己加载；`poteto-mode` 内部调用其他技能时，会按宿主映射表直接读取对应的 `SKILL.md`。
 
 ### 4. 需要时直接点名
 
@@ -237,13 +238,14 @@ Codex 上把 `/` 换成 `$`，例如 `$poteto-mode`。
 
 ### 举个例子：`feature` playbook 的实际步骤
 
-1. 确认受影响的行为、职责和验收标准。
-2. 解决重要设计选择，已有模式明确时直接沿用。
-3. 直接实现，或将值得并行的独立工作交给子代理并检查产物。
-4. 运行与改动相称的项目检查，必要时验证界面或集成路径。
-5. 修复问题并交付可审阅结果。只有获得授权才提交或开 PR。
-
-普通改动不要求固定技能串联、并行度检查点或单独的日志。
+1. 用 `how` 过一遍受影响的子系统。
+2. 用 `architect` 并行探索设计。
+3. 写吞吐检查点：阻塞步骤、独立工作流、共享可变状态、最小安全拆分。
+4. 把写代码委派给 feature 角色的子代理，范围、数据形状和验收标准写清楚。
+5. 在对应的真实界面上验证，"不确定"不算通过。
+6. 拆成小而有序的提交。
+7. 设计有争议时先 `interrogate`。
+8. 走 **Opening a PR**。
 
 ---
 
@@ -252,17 +254,17 @@ Codex 上把 `/` 换成 `$`，例如 `$poteto-mode`。
 | 分类 | 技能 |
 |---|---|
 | **主入口** | `poteto-mode` |
-| **理解** | `how` `why` `recall` `blast-radius` `teach` |
-| **设计与构建** | `architect` `arena` `swarm` `tdd` `typescript-best-practices` `figure-it-out` |
-| **验证** | `interrogate` `create-verification-skill` `maintain-verification-skill` |
-| **写作** | `unslop` `no-comments` `technical-writing` `bro` |
-| **元** | `setup-pstack` `automate-me` `reflect` `show-me-your-work` |
-| **21 条原则** | `principle-*`，由上面的技能在需要时引用 |
+| **理解** | `how` `why` `recall` `blast-radius` `teach` `in-your-own-words` |
+| **设计与构建** | `architect` `arena` `swarm` `tdd` `typescript-best-practices` `figure-it-out` `statechart` |
+| **验证** | `interrogate` `create-verification-skill` `maintain-verification-skill` `create-formal-verification-skill` `maintain-formal-verification-skill` `benchmark-checklist` |
+| **写作** | `unslop` `no-comments` `technical-writing` `bro` `sharpen` |
+| **元** | `setup-pstack` `poteto-help` `automate-me` `reflect` `correct` `show-me-your-work` `ketchup` `ketchup-video` |
+| **24 条原则** | `principle-*`，由上面的技能在需要时引用 |
 
 <details>
-<summary>展开 21 条原则</summary>
+<summary>展开 24 条原则</summary>
 
-`boundary-discipline` `build-the-lever` `encode-lessons-in-structure` `exhaust-the-design-space` `experience-first` `fix-root-causes` `foundational-thinking` `guard-the-context-window` `laziness-protocol` `make-operations-idempotent` `migrate-callers-then-delete-legacy-apis` `minimize-reader-load` `model-the-domain` `never-block-on-the-human` `outcome-oriented-execution` `prove-it-works` `redesign-from-first-principles` `separate-before-serializing-shared-state` `sequence-verifiable-units` `subtract-before-you-add` `type-system-discipline`
+`attack-the-premise` `boundary-discipline` `build-the-lever` `encode-lessons-in-structure` `exhaust-the-design-space` `experience-first` `explain-the-number` `fix-root-causes` `foundational-thinking` `guard-the-context-window` `laziness-protocol` `make-operations-idempotent` `migrate-callers-then-delete-legacy-apis` `minimize-reader-load` `model-the-domain` `never-block-on-the-human` `outcome-oriented-execution` `prove-it-works` `redesign-from-first-principles` `separate-before-serializing-shared-state` `sequence-verifiable-units` `subtract-before-you-add` `test-behavior-not-implementation` `type-system-discipline`
 
 </details>
 
@@ -291,7 +293,7 @@ Codex 上把 `/` 换成 `$`，例如 `$poteto-mode`。
 
 那几个是**常驻**的项目规则，每次会话全量塞进 context，所以只能写短、写笼统（"用 TypeScript"、"测试放 tests/ 下"）。
 
-pstack 技能按需加载。描述用于选择技能，正文提供必要约束，较长的条件流程放在引用文件中。`feature` 不强制委派，`refactoring` 优先复用已有行为测试。
+pstack 技能按需加载。描述用于选择技能，正文提供必要约束，较长的条件流程放在 playbook 和引用文件中。
 
 两者不冲突：CLAUDE.md 写你这个项目的事实，pstack 写通用的工程方法。
 
@@ -302,14 +304,14 @@ pstack 技能按需加载。描述用于选择技能，正文提供必要约束�
 
 不是。Claude Code 和 Codex 都支持，装的时候自动探测。
 
-`skills/` 保存公共方法论，构建器生成两个独立 host tree。Claude Code 产物使用 `/skill`、Markdown agents 和 Claude frontmatter；Codex 产物使用 `$skill`、`agents/openai.yaml`、TOML agents 和 Codex 路径。`scripts/build.mjs --check` 会拦住跨 host 泄漏。
+`skills/` 保存上游方法论，构建器生成两个独立 host tree，并给用到 Cursor 名称的技能附上各自的 `harness.md`。Claude Code 产物使用 `/skill`、Markdown agents 和 Claude frontmatter；Codex 产物使用 `$skill`、`agents/openai.yaml`、TOML agents 和 Codex 路径。`scripts/build.mjs --check` 会拦住跨 host 泄漏。
 
-想加第三个 host，44 个技能一个都不用动——写一份新 adapter，再在 `scripts/lib.mjs` 的 `HOSTS` 里加一项就行。
+想加第三个 host，57 个技能一个都不用动——写一份新 adapter 和 `harness.md`，再在 `scripts/lib.mjs` 的 `HOSTS` 里加一项就行。
 
 </details>
 
 <details>
-<summary><b>44 个全装会不会把 context 撑爆？</b></summary>
+<summary><b>57 个全装会不会把 context 撑爆？</b></summary>
 
 不会。常驻的只有每个技能的 `description` 那一行，正文按需加载。
 
@@ -355,10 +357,12 @@ pstack 是**无状态**的——它管"干一件事的方法和标准"，不记�
 <details>
 <summary><b>移植时改了哪些东西？</b></summary>
 
-- Cursor 的 `readonly` 模式会剥掉 MCP 访问，Claude Code 的 `Explore` 子代理不会——保留 MCP 但去掉写文件能力。所以 `why` 和 `reflect` 里"请你别改文件"的口头约定改成了由 harness 强制。
-- 依赖 `cursor-team-kit` 的技能（`deslop`、`control-ui`、`control-cli`）换成了自带的 `/unslop` 和 `/create-verification-skill` 生成的项目本地验证技能。
-- 删掉 `grokbot/make-bot-ui`，它绑死在 Cursor 的 automation webhook 上，两个目标 host 都没有对应物。
-- 上游写死的模型 slug 全部换成三档语义，具体绑定交给 `/setup-pstack`。
+- 技能正文保留上游的 Cursor 名称（`Task`、`AskQuestion`、`readonly`、模型 slug 等），安装时附带 `adapters/claude-code/harness.md` 或 `adapters/codex/harness.md` 做映射，跟进上游时不必逐句改写。
+- 查找会话记录、写决策日志、审计 worktree 改用跨平台的 `.mjs` 辅助脚本，支持 Windows，并只读取当前工作区的会话。
+- `poteto-mode` 的辅助依赖不会隐式安装，缺失时提示命令，由你决定是否安装。
+- Codex 产物额外带一段授权边界：提交、推送、PR、外部写入都按你已有的授权来，技能步骤不能扩大授权。
+- 删掉 `make-bot-ui`，它绑死在 Cursor 的 automation webhook 上，两个目标 host 都没有对应物。
+- `/setup-pstack` 按宿主重写，Claude Code 写 `~/.claude/pstack-models.md`，Codex 写 `~/.codex/pstack-models.md`。
 
 完整映射见 [`adapters/`](./adapters/)。
 

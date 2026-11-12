@@ -1,19 +1,22 @@
 ---
 name: principle-prove-it-works
-description: Choose evidence that verifies the changed behavior and supports the completion claim.
+description: "Apply after completing a task, before declaring done. Verify against the real artifact (run the feature, read the actual value, inspect the diff), not a proxy, self-report, or 'it compiles.'"
 disable-model-invocation: true
 ---
 
-# Prove it works
+# Prove It Works
 
-Match verification to the claim and the risk. Complete required project checks and reuse existing tests before creating new infrastructure.
+Verify every task output by checking the real thing directly. Do not infer from proxies, self-reports, or "it compiles."
 
-- For prose or a mechanical edit, inspect the diff and relevant references.
-- For code behavior, exercise affected cases with the closest meaningful tests.
-- For UI and integration claims, inspect the corresponding runtime path when available.
-- For performance, compare measured results under a representative workload.
-- For delegated work, inspect artifacts and evidence, not only the summary.
+**Why:** Unverified work has unknown correctness. Indirect verification (file mtimes, output freshness, agent self-reports, cached screenshots) feels cheaper than direct observation. Acting on a wrong inference costs far more than checking the source.
 
-Distinguish compilation, unit tests, mocks, and real infrastructure checks. Report missing coverage without inventing a pass. Use a reusable verification script when its benefit justifies the cost.
+Check the real thing, not a proxy:
+- Check process liveness directly, not indirectly through derived state
+- Read the actual value, not a cached or derived representation
+- When verification fails, suspect the observation method before suspecting the system
 
-Once checks pass, repeat or broaden them only after further changes, failures, or unresolved concerns. Verification does not authorize production access, external writes, or commits.
+## Script the check when you can
+
+The strongest proof is a deterministic script that re-runs the same comparison, not a one-time eyeball. Write the script, run it, and keep its output as an artifact a reviewer can re-run instead of trusting your word.
+
+Keep the artifact visible for the human. Commit it only for large or complex work where the trail has to be auditable later, like a big port or migration (the **show-me-your-work** skill).

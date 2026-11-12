@@ -2,7 +2,7 @@
 
 > Source material for the copied setup workflow. Paraphrase this intent into a built-in `automate` draft after `automate` confirms that the copied pack is committed in the repository where the automation will run.
 
-Read and follow `.claude/automations/benny/skills/reproduce-and-fix-issues/SKILL.md` for this run.
+Read and follow `.cursor/automations/benny/skills/reproduce-and-fix-issues/SKILL.md` for this run.
 
 Configuration source. Include this repository-relative path only when it is committed in the same target repository. Otherwise paraphrase the configured values. Never use a plugin source or cache path:
 

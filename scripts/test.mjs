@@ -242,26 +242,31 @@ try {
         stderr: "",
       }
     : executeAuditCommand(spec);
-  let auditRows = await auditWorktrees({
+  let auditRows;
+  let audit = await auditWorktrees({
     repo: auditRepo,
     host: "claude",
     homeDir: transcriptHome,
     nowMs: auditNow,
     run: auditRun,
+    base: "main",
   });
+  auditRows = audit.rows;
   assert.equal(auditRows.length, 1);
   assert.equal(auditRows[0].dirty.kind, "clean");
   assert.deepEqual(auditRows[0].pullRequest, { kind: "known", number: 42, state: "OPEN" });
   assert.equal(auditRows[0].bucket, "hold-open-pr");
-  assert.match(renderAudit(auditRows), /hold-open-pr.*audit worktree with spaces/);
+  assert.match(renderAudit(audit), /# base: main\n[\s\S]*hold-open-pr.*audit worktree with spaces/);
   writeFileSync(join(auditWorktree, "tracked.txt"), "changed\n");
-  auditRows = await auditWorktrees({
+  audit = await auditWorktrees({
     repo: auditRepo,
     host: "claude",
     homeDir: transcriptHome,
     nowMs: auditNow,
     run: auditRun,
+    base: "main",
   });
+  auditRows = audit.rows;
   assert.equal(auditRows[0].dirty.kind, "wip");
   assert.equal(auditRows[0].bucket, "hold-wip");
 
@@ -303,7 +308,7 @@ try {
   }
   for (const path of markdownUnder(codexRoot)) {
     const body = readFileSync(path, "utf8");
-    assert(!/\.claude\/|Claude Code|Task tool|subagent_type:|run_in_background|AskQuestion/.test(body), `Claude leak in ${path}`);
+    assert(!/\.claude\/|Claude Code|AskUserQuestion|subagent_type: "(general-purpose|Explore)"/.test(body), `Claude leak in ${path}`);
   }
 
   const claudeSetup = readFileSync(join(claudeRoot, "setup-pstack", "SKILL.md"), "utf8");

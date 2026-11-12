@@ -1,11 +1,12 @@
 ### Authoring or modifying a skill
 
-Write instructions that supply task-specific knowledge and decision boundaries.
+**You own the skill's voice.**
 
-- Keep the description short and precise about when the skill applies.
-- Keep shared constraints and routing in `SKILL.md`; put substantial conditional detail in linked references.
-- Preserve supported metadata and existing invocation policy. A mode workflow should require explicit invocation unless the user chooses otherwise.
-- Prefer outcomes and constraints to fixed recipes for routine work. Retain exact steps when correctness, safety, or a fragile tool contract requires them.
-- Validate frontmatter, naming, and references with the available project checks. Use realistic behavioral trials for substantial workflow changes when practical; wording-only changes do not require a new evaluation harness.
+1. Use the **create-skill** skill (Cursor's built-in for authoring SKILL.md files).
+2. Validate the skill: frontmatter has `name` and `description`, referenced files exist, cross-skill links resolve.
+3. Test cases if structural. Skip if subjective.
+4. Run **Opening a PR**.
 
-Update callers when removing a rule or reference. Deliver the changes and validation results; opening a PR requires authorization.
+When in doubt, delete. Keep only prose that changes a decision. Tell it to do the thing and skip the reason. Explain only when the rule is confusing without one. Match tone to scope. Point at structural sources (types, READMEs, config) per the **encode-lessons-in-structure** principle skill. Delegate to other skills by path. Don't restate. A workflow you keep hitting but isn't captured → propose a new skill.
+
+**Reply:** summary of the skill, key design decisions, validation notes.

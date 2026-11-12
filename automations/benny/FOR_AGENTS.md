@@ -2,7 +2,7 @@
 
 ## what i want to automate
 
-i want two scheduled agent automations that work together in one slack issue channel.
+i want two cursor automations that work together in one slack issue channel.
 
 ### automation 1: triage issue reports
 
@@ -28,10 +28,10 @@ i want two scheduled agent automations that work together in one slack issue cha
 - i want the source channel and root thread coordinates to stay immutable for the whole run.
 - i treat utility and debug bots as evidence, not delegation or fix ownership.
 - i allow subagents to help, but they cannot post to slack or receive slack credentials.
-- i want this entire pack committed at `.claude/automations/benny/` in the target repository. its `SKILL.md` files are direct automation instructions, not registered plugin skills.
-- i want pstack enabled through the target repository's committed `.claude/settings.json` only for shared dependencies such as `how`, `why`, `tdd`, `unslop`, and the required principle skills.
+- i want this entire pack committed at `.cursor/automations/benny/` in the target repository. its `SKILL.md` files are direct automation instructions, not registered plugin skills.
+- i want pstack enabled through the target repository's committed `.cursor/settings.json` only for shared dependencies such as `how`, `why`, `tdd`, `unslop`, and the required principle skills.
 - i want each live automation prompt to read its committed operational file directly. i do not want plugin cache paths, copied excerpts, or slash-skill discovery.
-- i keep user-owned configuration, feature maps, routing maps, and secrets outside `.claude/automations/benny/` so pack refreshes cannot overwrite them.
+- i keep user-owned configuration, feature maps, routing maps, and secrets outside `.cursor/automations/benny/` so pack refreshes cannot overwrite them.
 - i want both automations to fail closed when channel coordinates, tracker access, the control adapter, or the feature map are missing or uncertain.
 - i want draft pull requests only. do not merge or deploy.
 
@@ -50,21 +50,21 @@ i want two scheduled agent automations that work together in one slack issue cha
 - budgets: `<polling, verdict wait, follow-up, repro, rejection, fix>`
 - optional bot token capability: `<none, file download, or editable operations status>`
 
-start from [`configuration.example.yaml`](./templates/configuration.example.yaml) and [`feature-map.example.md`](./skills/reproduce-and-fix-issues/references/feature-map.example.md). copy and fill them outside this pack, for example under `.claude/benny/`. keep secret values in a secret manager or environment.
+start from [`configuration.example.yaml`](./templates/configuration.example.yaml) and [`feature-map.example.md`](./skills/reproduce-and-fix-issues/references/feature-map.example.md). copy and fill them outside this pack, for example under `.cursor/benny/`. keep secret values in a secret manager or environment.
 
 ## for the agent
 
-the human enters setup by pointing their agent at this file. do not look for or invoke a discovered benny slash skill.
+the human enters setup by pointing cursor at this file. do not look for or invoke a discovered benny slash skill.
 
 1. ask which repository will run the automations.
 2. treat the directory containing this `FOR_AGENTS.md` as the source pack.
-3. merge the entire source pack into `<target-repository>/.claude/automations/benny/`.
+3. merge the entire source pack into `<target-repository>/.cursor/automations/benny/`.
 4. preserve every destination-only file. never delete unrelated files or overwrite user-owned configuration, feature maps, or routing maps.
 5. when an existing destination file at a source-managed path differs, review the diff and merge without discarding local edits. if ownership is ambiguous, stop and ask before replacing it.
 6. verify that the copied `FOR_AGENTS.md` and `skills/setup-benny/SKILL.md` exist in the target repository.
-7. read and follow `.claude/automations/benny/skills/setup-benny/SKILL.md` directly from the target repository.
+7. read and follow `.cursor/automations/benny/skills/setup-benny/SKILL.md` directly from the target repository.
 
-i want you to merge this entry into the target repository's `.claude/settings.json`:
+i want you to merge this entry into the target repository's `.cursor/settings.json`:
 
 ```json
 {
@@ -78,12 +78,12 @@ preserve every unrelated setting and plugin. preserve comments and valid jsonc s
 
 i want verification from a fresh agent rooted in the target repository. confirm that pstack's `how`, `why`, `tdd`, `unslop`, and the principle skills used by benny resolve in project scope. do not count skills loaded from the current session or a user-scoped install.
 
-if project-scoped plugins are unavailable or any shared dependency does not resolve, stop and explain what failed. do not add `.claude/automations/benny/skills/` to a plugin manifest or expect its files to appear in the slash-skill list.
+if project-scoped plugins are unavailable or any shared dependency does not resolve, stop and explain what failed. do not add `.cursor/automations/benny/skills/` to a plugin manifest or expect its files to appear in the slash-skill list.
 
-tell me that `.claude/settings.json`, `.claude/automations/benny/`, and any referenced secret-free configuration must be committed before either automation is enabled. do not create or update an automation until i explicitly ask.
+tell me that `.cursor/settings.json`, `.cursor/automations/benny/`, and any referenced secret-free configuration must be committed before either automation is enabled. do not create or update an automation until i explicitly ask.
 
 for first-time creation, use built-in `/automate` once for triage and once for repro and fix. complete the draft review, approval, readiness check, and Automations editor handoff for the first automation before starting the second.
 
-paraphrase this intent and the finished configuration into each draft. the triage prompt must read and follow `.claude/automations/benny/skills/triage-issue-reports/SKILL.md`. the repro prompt must read and follow `.claude/automations/benny/skills/reproduce-and-fix-issues/SKILL.md`. use these repo-relative paths only after `/automate` confirms they are committed in the repository where the automation will run.
+paraphrase this intent and the finished configuration into each draft. the triage prompt must read and follow `.cursor/automations/benny/skills/triage-issue-reports/SKILL.md`. the repro prompt must read and follow `.cursor/automations/benny/skills/reproduce-and-fix-issues/SKILL.md`. use these repo-relative paths only after `/automate` confirms they are committed in the repository where the automation will run.
 
 for existing automations, do not use `/automate` to inspect or update them. validate the configuration, then use the concise field checklist in the copied setup file so i can edit each automation directly in its editor. do not create duplicates.

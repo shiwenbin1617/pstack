@@ -128,6 +128,8 @@ export async function auditWorktrees({
   homeDir = homedir(),
   nowMs = Date.now(),
   run = executeCommand,
+  base = null,
+  warn = (message) => console.error(message),
 }) {
   if (host !== "claude" && host !== "codex") throw new Error(`unknown host: ${host}`);
   const root = resolve(repo);
@@ -136,6 +138,7 @@ export async function auditWorktrees({
   const worktrees = parseWorktrees(listed.stdout);
   const [mainWorktree, ...linkedWorktrees] = worktrees;
   if (mainWorktree === undefined) throw new Error(`no worktrees found for ${root}`);
+  const mergeBase = resolveBase({ run, root, base, warn });
 
   const prResult = command(
     run,
@@ -156,7 +159,7 @@ export async function auditWorktrees({
     const ageDays = Number.isSafeInteger(committedAtSeconds)
       ? Math.max(0, Math.floor((nowMs - committedAtSeconds * 1000) / DAY_MS))
       : null;
-    const merged = command(run, "git", ["merge-base", "--is-ancestor", head, "origin/main"], worktree.path).exitCode === 0;
+    const merged = command(run, "git", ["merge-base", "--is-ancestor", head, mergeBase], worktree.path).exitCode === 0;
     const pullRequest = worktree.branch === null
       ? { kind: "none" }
       : pullRequests.get(worktree.branch) ?? { kind: "none" };
@@ -180,7 +183,26 @@ export async function auditWorktrees({
     rows.push({ ...row, bucket: bucketFor({ ...row, nowMs }) });
   }
 
-  return rows.sort((left, right) => right.sizeBytes - left.sizeBytes || left.path.localeCompare(right.path));
+  return { base: mergeBase, rows: rows.sort((left, right) => right.sizeBytes - left.sizeBytes || left.path.localeCompare(right.path)) };
+}
+
+function resolveBase({ run, root, base, warn }) {
+  const exists = (ref) => command(run, "git", ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], root).exitCode === 0;
+  let chosen = base;
+  if (chosen === null) {
+    const originHead = command(run, "git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], root);
+    const candidates = [originHead.exitCode === 0 ? originHead.stdout.trim() : "", "origin/main", "origin/master"];
+    chosen = candidates.find((candidate) => candidate !== "" && exists(candidate)) ?? null;
+    if (chosen === null) throw new Error("no base ref (origin/HEAD, origin/main, origin/master all missing); pass --base <ref>");
+    warn(`warn: no --base given; MERGED checks against ${chosen}`);
+  }
+  if (chosen.startsWith("origin/")) {
+    const branch = chosen.slice("origin/".length);
+    const fetched = command(run, "git", ["fetch", "origin", `+refs/heads/${branch}:refs/remotes/${chosen}`, "--quiet"], root);
+    if (fetched.exitCode !== 0) warn(`warn: could not fetch ${chosen}; merged column may be stale`);
+  }
+  if (!exists(chosen)) throw new Error(`base ref not found: ${chosen}`);
+  return chosen;
 }
 
 function formatSize(bytes) {
@@ -211,8 +233,8 @@ function cell(value) {
   return String(value).replace(/[\t\n\r]/g, " ");
 }
 
-export function renderAudit(rows) {
-  const lines = ["SIZE\tAGE\tMERGED\tDIRTY\tREMOTE\tPR\tLAST_CHAT\tBUCKET\tWORKTREE"];
+export function renderAudit({ base, rows }) {
+  const lines = [`# base: ${base}`, "SIZE\tAGE\tMERGED\tDIRTY\tREMOTE\tPR\tLAST_CHAT\tBUCKET\tWORKTREE"];
   for (const row of rows) {
     lines.push([
       formatSize(row.sizeBytes),
@@ -230,11 +252,15 @@ export function renderAudit(rows) {
 }
 
 function parseArgs(argv) {
-  const options = { repo: null, host: null, help: false };
+  const options = { repo: null, host: null, base: null, help: false };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--repo") options.repo = argv[++index] ?? null;
     else if (argument === "--host") options.host = argv[++index] ?? null;
+    else if (argument === "--base" || argument === "-b") {
+      options.base = argv[++index] ?? null;
+      if (options.base === null) throw new Error(`${argument} needs a ref`);
+    }
     else if (argument === "--help" || argument === "-h") options.help = true;
     else if (!argument.startsWith("-") && options.repo === null) options.repo = argument;
     else throw new Error(`unknown argument: ${argument}`);
@@ -243,7 +269,7 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  return "usage: node worktree-audit.mjs --host <claude|codex> [--repo <path>]";
+  return "usage: node worktree-audit.mjs --host <claude|codex> [--base <ref>] [--repo <path>]";
 }
 
 export async function main(argv) {
@@ -254,8 +280,8 @@ export async function main(argv) {
       return 0;
     }
     if (options.host === null) throw new Error(usage());
-    const rows = await auditWorktrees({ repo: options.repo ?? process.cwd(), host: options.host });
-    process.stdout.write(renderAudit(rows));
+    const audit = await auditWorktrees({ repo: options.repo ?? process.cwd(), host: options.host, base: options.base });
+    process.stdout.write(renderAudit(audit));
     return 0;
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));

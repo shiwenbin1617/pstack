@@ -1,28 +1,36 @@
 ---
 name: how
-description: Explain code flow, subsystem architecture, or ownership and layering. Use why for historical rationale.
+description: "Use for \"how does X work\", code walkthroughs before changing something, and placement / ownership / layering questions (\"where should this live\", \"which package owns this\", \"is this the right layer\"). Explains subsystem architecture, runtime flow, onboarding mental models. Use why for motivation."
+disable-model-invocation: true
 ---
 
 # How
 
-Answer the requested architecture or runtime question from the relevant implementation. Trace the entry point, data flow, state changes, and boundaries far enough to explain the behavior with file references.
+Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-For a narrow question, read and answer directly. Reuse context already gathered. A code edit does not by itself require an architecture walkthrough.
+Every spawn is a Task subagent with `subagent_type: generalPurpose` and `readonly: true`. Explorers use the `how explorer` line in the `pstack-models.mdc` rule (default `grok-4.7-xhigh-fast`), and every explainer uses the `how explainer` line (default `claude-opus-5-5-xhigh`). Set `model` to that line's value, or to the default if the rule or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the Task tool rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
 
-For a broad subsystem, delegate independent slices only when that would save time or improve coverage. Give each explorer a distinct question and file scope; use read-only access where available. The parent reconciles findings and writes the answer. A separate explainer is optional, not a required handoff.
+## 1. Assess complexity
 
-Use configured how-role models when delegating; otherwise inherit the parent model. If delegation is unavailable, continue locally.
+If the scope is ambiguous, state your interpretation and explore. The user can redirect.
 
-## Critique
+- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): no explorers. Spawn one explainer that explores and explains in one pass, built from `references/explainer-prompt.md` without the explorer-findings section. Go to step 4.
+- **Complex** (a subsystem spanning multiple files or services, a cross-cutting feature, a full architectural overview): go to step 2.
 
-When architectural critique is requested, identify concrete problems after understanding the relevant behavior. Independent critics help with consequential or contested choices; a fixed panel is unnecessary for a small question. Judge findings against the code and project constraints, not vote counts. Report actionable findings before optional context.
+When in doubt, take the simple path.
 
-## References
+## 2. Explore (complex only)
 
-Read only what the current mode needs:
+Decompose the question into 2 to 4 angles, each a distinct slice of the subsystem. Spawn all explorers in a single message, each with `references/explorer-prompt.md` and its angle filled in.
 
-- [Explorer prompt](references/explorer-prompt.md) for a delegated exploration.
-- [Explainer prompt](references/explainer-prompt.md) for a substantial walkthrough.
-- [Critic prompt](references/critic-prompt.md) and [critique rubric](references/critique-rubric.md) for architectural review.
+## 3. Synthesize (complex only)
 
-Lead with the answer, cite the relevant files, and explain material uncertainty. Include a diagram or file map only when it makes the flow easier to understand. Historical claims need evidence or an explicit inference label.
+Once all explorers have returned, spawn one explainer with `references/explainer-prompt.md` and every explorer's findings filled in.
+
+## 4. Present
+
+Present the explainer's output. Light edits for clarity or context from the conversation are fine. Do not substantially rewrite it.
+
+## Output format
+
+The explanation uses the sections defined in `references/explainer-prompt.md`, dropping any that do not apply: Overview, Key Concepts, How It Works, Where Things Live, Gotchas.

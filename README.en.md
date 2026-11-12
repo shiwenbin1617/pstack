@@ -12,7 +12,7 @@ A set of Markdown rules that make an agent understand the problem before it writ
 
 [Install](#install) · [Use it](#use-it) · [How it works](#how-it-works) · [Skills](#skills) · [FAQ](#faq)
 
-Works with **Claude Code** and **Codex** · 44 skills · 23 playbooks · 21 engineering principles
+Works with **Claude Code** and **Codex** · 57 skills · 23 playbooks · 24 engineering principles
 
 [中文](./README.md) · English
 
@@ -26,18 +26,18 @@ npx @shiwenbin1617/pstack add
 
 ## Why pstack
 
-pstack supplies workflows when a task needs them. Routine implementation stays with the model's judgment, bounded by project contracts, permissions, and proportionate verification.
+pstack supplies rigorous engineering workflows: go deep first, and give design, verification, and delivery each an exit condition.
 
-The instruction cleanup follows [OpenAI GPT-6 Astra Model Guidance](https://developers.openai.com/api/docs/guides/latest-model) and [Eric Provencher's skills and prompts guidance](https://x.com/pvncher/status/2095991462416490862). Safety gates remain; efficiency gains require measurement on real tasks.
+The skill text tracks upstream [cursor/plugins/pstack](https://github.com/cursor/plugins/tree/main/pstack) 0.15.36 (2026-11-11). Upstream writes skills with Cursor tool names. At install, each skill that uses them gets a host map, `harness.md`, that gives the Claude Code or Codex tool, path, and model for each name.
 
 | What you get | What it does |
 |---|---|
 | **Understand what matters** | `/how` explains behavior and ownership; `/why` follows evidence about rationale. Narrow questions can be answered directly |
 | **Design judgment** | `/architect` resolves unsettled interface and architecture choices, comparing alternatives when useful |
 | **Adversarial across models** | `/arena` runs N designs in parallel and grafts the best parts together. `/interrogate` sends different models at your diff in turn |
-| **Proportionate evidence** | Match checks to changed behavior, distinguish mocks from real integration, and stop repeating checks after they pass |
-| **23 playbooks** | Select by task; fixed gates protect actual contracts and safety boundaries while routine steps adapt |
-| **21 engineering principles** | Optional deeper guidance for concrete decisions, without mandatory loading or citations |
+| **Evidence, not claims** | Runtime proof on the real surface. A green compile or a mock is not verification |
+| **23 playbooks** | Bug fix, feature, refactor, perf, opening a PR, and more, each with exit conditions |
+| **24 engineering principles** | Every decision traces back to a principle |
 | **No AI smell** | `/no-comments` strips narrating comments. `/unslop` removes AI tells. `/technical-writing` handles PRs and commit messages |
 | **One install, two hosts** | One body of methodology generates two native trees. Claude Code and Codex keep separate files, agents, and config |
 
@@ -64,7 +64,7 @@ First pick the agent: Claude Code, Codex, or both. The cursor starts on whicheve
 
 Then pick your skills. Arrow keys move, `space` toggles, `a` selects all, `enter` confirms. Ten core entry points come preselected.
 
-**The set is coupled and only works installed whole.** `poteto-mode` reads all 33 principle skills, so whatever you pick, the installer pulls in what it references. The preselected core lands on 39 of the 44. `pstack add --all` saves you the arithmetic.
+**The set is coupled and only works installed whole.** `poteto-mode` references all 24 principle skills, so whatever you pick, the installer pulls in what it references. The preselected core lands on 40 of the 57. `pstack add --all` saves you the arithmetic.
 
 Last, it asks once whether to write the pstack block into CLAUDE.md / AGENTS.md. See "Writing into CLAUDE.md / AGENTS.md" below.
 
@@ -80,7 +80,7 @@ npm i -g @shiwenbin1617/pstack
 
 ```bash
 pstack add --core            # core entry points plus their dependencies, 39 of them
-pstack add --all             # all 44
+pstack add --all             # all 57
 pstack add how why           # named skills only
 pstack add --core --host codex --memory   # Codex only, and write AGENTS.md
 ```
@@ -152,7 +152,7 @@ To pin a version or serve from an internal mirror, publish this repo to a privat
 
 ## Use it
 
-### 1. Bind your model tiers
+### 1. Bind your models
 
 This step is optional, but run it once.
 
@@ -164,15 +164,16 @@ This step is optional, but run it once.
 $setup-pstack
 ```
 
-It reads the models your session can actually reach and binds three tiers.
+It reads the models your session can actually reach, asks for a reasoning budget (unlimited, large, medium, or small), then binds a model per role.
 
-| Tier | Where it goes |
+| Role | Where it goes |
 |---|---|
-| Fast code model | Mechanical changes with a clear spec |
-| Precise-execution model | Work that must follow steps to the letter |
-| Judgment model | Copy, design calls, adversarial review |
+| `feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb` | Delegates that write code |
+| `judgment and prose`, `hardest tasks` | Copy, design calls, and the hardest changes |
+| `how`, `why`, `reflect` roles | Research and synthesis |
+| `arena`, `architect`, `interrogate` panels | Multi-model bakeoffs and adversarial review. The list length sets the fan-out |
 
-Skill text only ever says "use your judgment model". This file decides who that is. Claude Code writes `~/.claude/pstack-models.md` and Codex writes `~/.codex/pstack-models.md`. Neither reads the other. Skip the step and every skill falls back to its own inline tier defaults.
+Skill text names upstream's default models. This file decides which ones you use. Claude Code writes `~/.claude/pstack-models.md` and Codex writes `~/.codex/pstack-models.md`. Neither reads the other. Skip the step and every skill falls back to its own defaults, mapped by the host adapter.
 
 ### 2. One entry point covers most days
 
@@ -188,7 +189,7 @@ $poteto-mode Add CSV and JSON export to the settings page, with runtime evidence
 
 It reads your request, matches a playbook, copies that playbook's steps verbatim into a todo list, and calls the other skills step by step.
 
-On Claude Code, `/poteto-mode` keeps its native sticky mode. Codex has no such mode and pstack does not fake one. Invoke `$poteto-mode` for each new task there, and use the goal, wait, or recurring-monitoring features of your Codex session for long runs.
+Invoke `/poteto-mode` (`$poteto-mode` on Codex) for each new task. Most skills are manual-only, so the model never loads them on its own. When `poteto-mode` calls another skill, the host adapter has it read that skill's `SKILL.md` directly.
 
 ### 4. Call a skill by name when you want one
 
@@ -239,13 +240,14 @@ On Codex, replace `/` with `$`, as in `$poteto-mode`.
 
 ### What the `feature` playbook actually does
 
-1. Establish affected behavior, ownership, and acceptance criteria.
-2. Resolve important design choices, using established patterns when the shape is clear.
-3. Implement directly or delegate worthwhile independent work and inspect its artifacts.
-4. Run appropriate project checks and exercise UI or integration paths when needed.
-5. Fix failures and deliver a reviewable result. Commit or open a PR only with authorization.
-
-Ordinary changes need no fixed skill sequence, throughput checkpoint, or separate decision log.
+1. `how` over the affected subsystem.
+2. `architect` for parallel design exploration.
+3. Write the throughput checkpoint: blocking steps, independent workstreams, shared mutable state, smallest safe decomposition.
+4. Delegate code-writing to the feature-role subagent with a specific scope, data shape, and acceptance criteria.
+5. Verify on the matching surface. "Inconclusive" is not a pass.
+6. Rebase into small, ordered commits.
+7. If the design is contested, `interrogate` before shipping.
+8. Run **Opening a PR**.
 
 ---
 
@@ -254,17 +256,17 @@ Ordinary changes need no fixed skill sequence, throughput checkpoint, or separat
 | Group | Skills |
 |---|---|
 | **Entry point** | `poteto-mode` |
-| **Understand** | `how` `why` `recall` `blast-radius` `teach` |
-| **Design and build** | `architect` `arena` `swarm` `tdd` `typescript-best-practices` `figure-it-out` |
-| **Verify** | `interrogate` `create-verification-skill` `maintain-verification-skill` |
-| **Writing** | `unslop` `no-comments` `technical-writing` `bro` |
-| **Meta** | `setup-pstack` `automate-me` `reflect` `show-me-your-work` |
-| **21 principles** | `principle-*`, cited by the skills above where they apply |
+| **Understand** | `how` `why` `recall` `blast-radius` `teach` `in-your-own-words` |
+| **Design and build** | `architect` `arena` `swarm` `tdd` `typescript-best-practices` `figure-it-out` `statechart` |
+| **Verify** | `interrogate` `create-verification-skill` `maintain-verification-skill` `create-formal-verification-skill` `maintain-formal-verification-skill` `benchmark-checklist` |
+| **Writing** | `unslop` `no-comments` `technical-writing` `bro` `sharpen` |
+| **Meta** | `setup-pstack` `poteto-help` `automate-me` `reflect` `correct` `show-me-your-work` `ketchup` `ketchup-video` |
+| **24 principles** | `principle-*`, cited by the skills above where they apply |
 
 <details>
-<summary>The 21 principles</summary>
+<summary>The 24 principles</summary>
 
-`boundary-discipline` `build-the-lever` `encode-lessons-in-structure` `exhaust-the-design-space` `experience-first` `fix-root-causes` `foundational-thinking` `guard-the-context-window` `laziness-protocol` `make-operations-idempotent` `migrate-callers-then-delete-legacy-apis` `minimize-reader-load` `model-the-domain` `never-block-on-the-human` `outcome-oriented-execution` `prove-it-works` `redesign-from-first-principles` `separate-before-serializing-shared-state` `sequence-verifiable-units` `subtract-before-you-add` `type-system-discipline`
+`attack-the-premise` `boundary-discipline` `build-the-lever` `encode-lessons-in-structure` `exhaust-the-design-space` `experience-first` `explain-the-number` `fix-root-causes` `foundational-thinking` `guard-the-context-window` `laziness-protocol` `make-operations-idempotent` `migrate-callers-then-delete-legacy-apis` `minimize-reader-load` `model-the-domain` `never-block-on-the-human` `outcome-oriented-execution` `prove-it-works` `redesign-from-first-principles` `separate-before-serializing-shared-state` `sequence-verifiable-units` `subtract-before-you-add` `test-behavior-not-implementation` `type-system-discipline`
 
 </details>
 
@@ -304,14 +306,14 @@ They do not conflict. CLAUDE.md holds facts about your project. pstack holds gen
 
 No. Claude Code and Codex both work, and the installer detects which you have.
 
-`skills/` holds the shared methodology. The builder generates two independent host trees. The Claude Code tree uses `/skill`, Markdown agents, and Claude frontmatter. The Codex tree uses `$skill`, `agents/openai.yaml`, TOML agents, and Codex paths. `scripts/build.mjs --check` blocks cross-host leakage.
+`skills/` holds the upstream methodology. The builder generates two independent host trees and gives each skill that uses Cursor names its host's `harness.md`. The Claude Code tree uses `/skill`, Markdown agents, and Claude frontmatter. The Codex tree uses `$skill`, `agents/openai.yaml`, TOML agents, and Codex paths. `scripts/build.mjs --check` blocks cross-host leakage.
 
-Adding a third host touches none of the 44 skills. Write one adapter and add an entry to `HOSTS` in `scripts/lib.mjs`.
+Adding a third host touches none of the 57 skills. Write one adapter and a `harness.md`, and add an entry to `HOSTS` in `scripts/lib.mjs`.
 
 </details>
 
 <details>
-<summary><b>Will installing all 44 blow up my context?</b></summary>
+<summary><b>Will installing all 57 blow up my context?</b></summary>
 
 No. Only the `description` line of each skill stays resident. Bodies load on demand.
 
@@ -357,10 +359,12 @@ To make an agent work the way you personally do, run `/automate-me`. It reads yo
 <details>
 <summary><b>What changed in the port?</b></summary>
 
-- Cursor's `readonly` mode strips MCP access. The `Explore` subagent in Claude Code does not, so it keeps MCP and loses file writes instead. The "please do not edit files" convention inside `why` and `reflect` is now enforced by the harness.
-- Skills that depended on `cursor-team-kit`, namely `deslop`, `control-ui`, and `control-cli`, were replaced by the bundled `/unslop` and by project-local verification skills that `/create-verification-skill` generates.
-- `grokbot/make-bot-ui` was deleted. It was tied to Cursor's automation webhook, which neither target host has.
-- Every hardcoded model slug upstream became one of three semantic tiers, bound by `/setup-pstack`.
+- Skill text keeps upstream's Cursor names (`Task`, `AskQuestion`, `readonly`, model slugs). The install adds `adapters/claude-code/harness.md` or `adapters/codex/harness.md` to map them, so tracking upstream needs no line-by-line rewrite.
+- Transcript lookup, the decision log, and the worktree audit use cross-platform `.mjs` helpers. They work on Windows and read only the active workspace's transcripts.
+- `poteto-mode` helper dependencies are never installed implicitly. When they are missing, the helper prints the command and you decide.
+- The Codex tree adds an authorization section: commits, pushes, PRs, and external writes follow the authorization you already gave, and a skill step cannot widen it.
+- `make-bot-ui` was deleted. It was tied to Cursor's automation webhook, which neither target host has.
+- `/setup-pstack` is rewritten per host. Claude Code writes `~/.claude/pstack-models.md` and Codex writes `~/.codex/pstack-models.md`.
 
 The full mapping is in [`adapters/`](./adapters/).
 
